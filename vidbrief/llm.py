@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .config import ROOT
+from .modellock import model_slot
 
 LLM_RUN = ROOT / "scripts" / "llm_run.py"
 
@@ -30,7 +31,21 @@ def run_jobs(
     on_progress: Callable[[dict[str, Any]], None] | None = None,
     on_proc: Callable[[subprocess.Popen], None] | None = None,
 ) -> tuple[list[LlmResult], dict[str, Any]]:
-    """Run jobs in one model load. Returns (results in job order, timing)."""
+    """Run jobs in one model load. Returns (results in job order, timing).
+
+    Waits for the machine-wide model slot first; `on_progress` gets {"waiting": True} meanwhile.
+    """
+    with model_slot(on_wait=(lambda: on_progress({"waiting": True})) if on_progress else None):
+        return _run(jobs, model=model, on_progress=on_progress, on_proc=on_proc)
+
+
+def _run(
+    jobs: list[dict[str, Any]],
+    *,
+    model: str,
+    on_progress: Callable[[dict[str, Any]], None] | None,
+    on_proc: Callable[[subprocess.Popen], None] | None,
+) -> tuple[list[LlmResult], dict[str, Any]]:
     proc = subprocess.Popen(
         [sys.executable, str(LLM_RUN)],
         stdin=subprocess.PIPE,

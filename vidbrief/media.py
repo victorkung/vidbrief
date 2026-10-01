@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .config import ROOT
+from .modellock import model_slot
 from .naming import canonicalize_media_url
 
 ProgressFn = Callable[[dict[str, Any]], None]
@@ -195,6 +196,19 @@ def transcribe(
     on_proc: Callable[[subprocess.Popen], None] | None = None,
 ) -> Path:
     """Run scripts/transcribe.py (chunked MLX Whisper). Returns the transcript JSON path."""
+    waiting = (lambda: on_progress({"stage": "transcribing", "percent": None,
+                                    "detail": "Waiting for another VidBrief job to finish…"})) if on_progress else None
+    with model_slot(on_wait=waiting):
+        return _transcribe(audio, model=model, on_progress=on_progress, on_proc=on_proc)
+
+
+def _transcribe(
+    audio: Path,
+    *,
+    model: str,
+    on_progress: ProgressFn | None,
+    on_proc: Callable[[subprocess.Popen], None] | None,
+) -> Path:
     cmd = [sys.executable, str(TRANSCRIBE_PY), "--model", model, "--language", "en", str(audio)]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if on_proc:

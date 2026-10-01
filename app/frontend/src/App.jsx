@@ -4,9 +4,13 @@ import Markdown from "./markdown.jsx";
 
 const ACTIVE = new Set(["queued", "running", "pending"]);
 
+const TAB_SLUGS = { brief: "", condensed: "points", transcript: "transcript" };
+
 function routeFromHash() {
-  const m = (window.location.hash || "#/").replace(/^#/, "").match(/^\/b\/([^/]+)/);
-  return m ? { name: "brief", id: m[1] } : { name: "home" };
+  const m = (window.location.hash || "#/").replace(/^#/, "").match(/^\/b\/([^/]+)(?:\/(points|transcript))?/);
+  if (!m) return { name: "home" };
+  const tab = m[2] === "points" ? "condensed" : m[2] || "brief";
+  return { name: "brief", id: m[1], tab };
 }
 
 function go(hash) {
@@ -76,13 +80,14 @@ export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [detail, setDetail] = useState(null);
-  const [tab, setTab] = useState("brief");
+  const [tab, setTab] = useState(() => routeFromHash().tab || "brief");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const onHash = () => {
-      setRoute(routeFromHash());
-      setTab("brief");
+      const r = routeFromHash();
+      setRoute((prev) => (prev.name === r.name && prev.id === r.id ? prev : r));
+      setTab(r.tab || "brief");
       setError("");
     };
     window.addEventListener("hashchange", onHash);
@@ -374,7 +379,12 @@ export default function App() {
             <>
               <div className="tabs">
                 {tabs.map(([key, label]) => (
-                  <button key={key} type="button" className={current[0] === key ? "on" : ""} onClick={() => setTab(key)}>
+                  <button
+                    key={key}
+                    type="button"
+                    className={current[0] === key ? "on" : ""}
+                    onClick={() => go(`#/b/${detail.id}${TAB_SLUGS[key] ? `/${TAB_SLUGS[key]}` : ""}`)}
+                  >
                     {label}
                   </button>
                 ))}

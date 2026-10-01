@@ -58,7 +58,9 @@ def _stats(results: list[llm.LlmResult], timings: list[dict[str, Any]]) -> dict[
 
 def _progress(on_progress: ProgressFn | None, stage: str, label: str) -> Callable[[dict[str, Any]], None]:
     def prog(p: dict[str, Any]) -> None:
-        if on_progress:
+        if on_progress and p.get("waiting"):
+            on_progress({"stage": stage, "percent": None, "detail": "Waiting for another VidBrief job to finish…"})
+        elif on_progress:
             frac = (p["job"] + min(1.0, p["tokens"] / max(1, p["max_tokens"]) * 1.5)) / p["jobs"]
             detail = f"{label} {p['job'] + 1}/{p['jobs']}" if p["jobs"] > 1 else label
             on_progress({"stage": stage, "percent": min(99, 100 * frac), "detail": f"{detail} · {p['tokens']} tokens"})

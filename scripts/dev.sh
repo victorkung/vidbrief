@@ -5,8 +5,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-API_PORT="${PORT:-8788}"
-UI_PORT=5174
+# Override to run a second instance (e.g. a demo library): VIDBRIEF_API_PORT / VIDBRIEF_UI_PORT.
+API_PORT="${VIDBRIEF_API_PORT:-${PORT:-8788}}"
+UI_PORT="${VIDBRIEF_UI_PORT:-5174}"
+export PORT="$API_PORT" VIDBRIEF_API_PORT="$API_PORT" VIDBRIEF_UI_PORT="$UI_PORT"
 
 port_in_use() {
   lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1

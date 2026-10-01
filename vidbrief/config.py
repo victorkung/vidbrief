@@ -78,5 +78,5 @@ def load_settings() -> Settings:
         chapter_temperature=_float("CHAPTER_TEMPERATURE", 0.2),
         overview_temperature=_float("OVERVIEW_TEMPERATURE", 0.3),
         briefs_dir=Path(os.environ.get("BRIEFS_DIR") or ROOT / "briefs").expanduser(),
-        data_dir=ROOT / "data",
+        data_dir=Path(os.environ.get("DATA_DIR") or ROOT / "data").expanduser(),
     )

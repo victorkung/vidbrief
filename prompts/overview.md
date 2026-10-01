@@ -14,5 +14,6 @@ One paragraph of 2-3 sentences: who is speaking (host and guests by name if give
 
 Rules:
 - Draw from every chapter, including the last ones, not just the first.
+- Takeaways are broader lessons that connect chapters. Do not copy a chapter bullet; restate the idea with its most important specific.
 - Use only facts from the material provided. If a name is not given, describe the role ("The host").
 - Direct, confident, active voice. No filler.

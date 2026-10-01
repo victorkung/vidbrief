@@ -68,7 +68,7 @@ def load_settings() -> Settings:
         transcript_source=_choice("TRANSCRIPT_SOURCE", TRANSCRIPT_SOURCES),
         mode=mode if mode in MODES else "chaptered",
         chunk_tokens=_int("CHUNK_TOKENS", 7000),
-        condense_max_tokens=_int("CONDENSE_MAX_TOKENS", 2000),
+        condense_max_tokens=_int("CONDENSE_MAX_TOKENS", 3000),
         chapters_max_tokens=_int("CHAPTERS_MAX_TOKENS", 400),
         chapter_max_tokens=_int("CHAPTER_MAX_TOKENS", 700),
         overview_max_tokens=_int("OVERVIEW_MAX_TOKENS", 1200),

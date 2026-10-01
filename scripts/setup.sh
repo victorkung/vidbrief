@@ -36,7 +36,7 @@ fi
 [[ -f .env ]] || cp .env.example .env
 
 if [[ "${SKIP_MODELS:-0}" != "1" ]]; then
-  echo "→ prefetching models (first time: ~6.5 GB; set SKIP_MODELS=1 to skip)"
+  echo "→ prefetching models (first time: ~7.5 GB; set SKIP_MODELS=1 to skip)"
   .venv/bin/python -c "
 import importlib.util
 from vidbrief.config import load_settings

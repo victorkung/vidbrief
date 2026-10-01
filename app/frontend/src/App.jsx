@@ -71,7 +71,7 @@ export default function App() {
   const [health, setHealth] = useState(null);
   const [briefs, setBriefs] = useState([]);
   const [url, setUrl] = useState("");
-  const [whisper, setWhisper] = useState("small");
+  const [whisper, setWhisper] = useState("turbo");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -100,7 +100,7 @@ export default function App() {
   useEffect(() => {
     api.health().then((h) => {
       setHealth(h);
-      if (h?.whisper_model) setWhisper(h.whisper_model);
+      if (["turbo", "small"].includes(h?.whisper_model)) setWhisper(h.whisper_model);
     }).catch(() => setHealth({ ok: false }));
     refreshList();
   }, [refreshList]);
@@ -247,15 +247,20 @@ export default function App() {
               aria-label="Video links"
               autoFocus
             />
-            <select value={whisper} onChange={(e) => setWhisper(e.target.value)} title="Whisper model">
-              <option value="small">Whisper small · fast</option>
-              <option value="medium">Whisper medium</option>
-              <option value="turbo">Whisper turbo · accurate</option>
+            <select value={whisper} onChange={(e) => setWhisper(e.target.value)} aria-describedby="whisper-help"
+              title="Transcription model, used only when a video has no captions">
+              <option value="turbo">Turbo · most accurate</option>
+              <option value="small">Small · faster</option>
             </select>
             <button type="submit" className="btn primary" disabled={busy || !linkCount}>
               {busy ? "Adding…" : linkCount > 1 ? `Brief ${linkCount} videos` : "Brief it"}
             </button>
           </form>
+          <p className="hint" id="whisper-help">
+            YouTube videos with captions skip transcription entirely. For X videos and YouTube videos without
+            captions, Whisper transcribes on this Mac: <strong>Turbo</strong> gets names and numbers right more
+            often; <strong>Small</strong> is faster but mishears more.
+          </p>
           {error && <p className="hint danger-text">{error}</p>}
           {notice && <p className="hint ok-text">{notice}</p>}
           <section className="library">

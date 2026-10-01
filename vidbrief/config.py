@@ -11,7 +11,7 @@ from .envload import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 
 DEFAULT_LLM_MODEL = "mlx-community/Qwen3.5-9B-MLX-4bit"
-DEFAULT_WHISPER = "small"
+DEFAULT_WHISPER = "turbo"  # large-v3-turbo: much better on names and numbers; small is faster
 MODES = ("chaptered", "single_pass")
 MODE_ALIASES = {"two_pass": "chaptered", "three_pass": "chaptered"}
 

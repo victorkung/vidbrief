@@ -14,7 +14,7 @@ Requires an Apple Silicon Mac (16 GB RAM recommended), Python 3.10+, Node 18+, `
 
 ```bash
 brew install yt-dlp ffmpeg node
-./scripts/setup.sh        # venv, Python + UI deps, model download (~6 GB first time)
+./scripts/setup.sh        # venv, Python + UI deps, model download (~7.5 GB first time)
 ./scripts/dev.sh          # UI at http://127.0.0.1:5174
 ```
 
@@ -45,7 +45,7 @@ Copy `.env.example` to `.env`. The main settings:
 | `LLM_MODEL` | `mlx-community/Qwen3.5-9B-MLX-4bit` | Any mlx-lm model (Hugging Face id or local path) |
 | `SUMMARY_MODE` | `chaptered` | `chaptered` (steps above) or `single_pass` (one call) |
 | `TRANSCRIPT_SOURCE` | `auto` | `auto` (captions, else Whisper), `whisper`, or `captions` |
-| `WHISPER_MODEL` | `small` | `small`, `medium`, or `turbo` |
+| `WHISPER_MODEL` | `turbo` | `turbo` (most accurate) or `small` (faster). Only used when a video has no captions |
 | `HF_HOME` | `~/.cache/huggingface` | Where models are stored (an external drive works) |
 
 ### Editing prompts

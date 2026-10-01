@@ -1,4 +1,9 @@
-"""Prompt files (prompts/*.md, overridable in prompts/private/), user-prompt builders, validator."""
+"""Prompt files (prompts/*.md, overridable in prompts/private/), builders, parsers, validator.
+
+chaptered flow (see summarize.py): condense.md per transcript window → chapters.md plans
+topic-based chapters → chapter.md writes each chapter from its condensed points →
+overview.md writes summary, speakers and takeaways. Code assembles the brief.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,7 @@ from pathlib import Path
 from .config import ROOT
 
 PROMPTS = ROOT / "prompts"
-NAMES = ("extract", "synthesize", "single_pass")
+NAMES = ("condense", "chapters", "chapter", "overview", "single_pass")
 
 
 def prompt_path(name: str, *, prompts_dir: Path = PROMPTS) -> Path:
@@ -25,23 +30,59 @@ def load_prompt(name: str, *, prompts_dir: Path = PROMPTS) -> str:
     return prompt_path(name, prompts_dir=prompts_dir).read_text(encoding="utf-8").strip()
 
 
+def section_count(duration_s: float | None) -> int:
+    """Target chapter count: about one per 15 minutes, 3–6 total."""
+    minutes = (duration_s or 0) / 60
+    return max(3, min(6, round(minutes / 15)))
+
+
 def _source_line(title: str | None, uploader: str | None) -> str:
     bits = [b for b in (title, uploader) if b]
-    return ("SOURCE: " + " — ".join(bits) + "\n\n") if bits else ""
+    return ("VIDEO: " + " — ".join(bits) + "\n\n") if bits else ""
 
 
-def extract_user_prompt(*, transcript: str, part: int = 1, parts: int = 1) -> str:
-    scope = f" (part {part} of {parts} of a longer video)" if parts > 1 else ""
+def condense_user_prompt(*, transcript: str, part: int, parts: int) -> str:
+    scope = f"Part {part} of {parts} of the transcript" if parts > 1 else "Transcript"
+    return f"{scope}:\n\n{transcript}\n\n---\nWrite the key points now, one [HH:MM:SS] line each."
+
+
+def chapters_user_prompt(*, title: str | None, condensed: str, duration_s: float, target: int) -> str:
     return (
-        f"Transform this video transcript{scope} into a comprehensive AI Condensed Transcript:\n\n"
-        f"{transcript}"
+        f"{_source_line(title, None)}Video length: {_hms(duration_s)}\n\nCONDENSED TRANSCRIPT:\n{condensed}\n\n"
+        f"---\nList the chapters now: about {target} (between {max(3, target - 1)} and {target + 1}), "
+        "one '[HH:MM:SS] Title' line each, starting at [00:00:00]."
     )
 
 
-def section_count(duration_s: float | None) -> int:
-    """About one chapter per 15 minutes, 3–6 total."""
-    minutes = (duration_s or 0) / 60
-    return max(3, min(6, round(minutes / 15)))
+def chapter_user_prompt(*, title: str, number: int, start: str, end: str, points: str,
+                        video_title: str | None = None) -> str:
+    return (
+        f"{_source_line(video_title, None)}CHAPTER {number}: {title} ({start}–{end})\n\nKEY POINTS:\n{points}\n\n"
+        "---\nWrite THEME and 3-4 timestamped bullets for this chapter now."
+    )
+
+
+def overview_user_prompt(*, title: str | None, uploader: str | None, opening: str, chapters: str) -> str:
+    return (
+        f"{_source_line(title, uploader)}OPENING MINUTES (for who is speaking and why):\n{opening}\n\n"
+        f"CHAPTERS:\n{chapters}\n\n"
+        "---\nWrite ## Executive Summary, ## Speaker & Guests, and ## Key Takeaways now."
+    )
+
+
+def single_pass_user_prompt(*, title: str | None, uploader: str | None, transcript: str, sections: int) -> str:
+    return (
+        f"{_source_line(title, uploader)}Transcript:\n{transcript}\n\n"
+        f"---\nWrite the brief now, with exactly {sections} chapters spread evenly across the video."
+    )
+
+
+# ── Parsing ────────────────────────────────────────────────────────────────
+
+# [00:01:00], **00:01:00**, **[00:01:00]**, 00:01:00 — at the start of a bullet.
+_LEAD_TS = re.compile(r"^\s*(?:\*\*)?\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?(?:\*\*)?[\s:\-–—]*")
+_TS = re.compile(r"\[\d{1,2}:\d{2}(?::\d{2})?\]")
+_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 
 
 def _hms(seconds: float) -> str:
@@ -49,58 +90,120 @@ def _hms(seconds: float) -> str:
     return f"{total // 3600:02d}:{total % 3600 // 60:02d}:{total % 60:02d}"
 
 
-def section_spans(duration_s: float | None, sections: int) -> list[tuple[str, str]]:
-    if not duration_s or duration_s <= 0:
-        return []
-    step = duration_s / sections
-    return [(_hms(i * step), _hms((i + 1) * step)) for i in range(sections)]
+def _to_seconds(ts: str) -> int:
+    return sum(int(x) * 60 ** i for i, x in enumerate(reversed(ts.split(":"))))
 
 
-def format_reminder(sections: int, duration_s: float | None = None) -> str:
-    # Small local models drift on long inputs and front-load coverage; restating the format after
-    # the content, with a fixed time range per chapter, keeps them on spec through the ending.
-    lines = [
-        "\n\n---\nNow write the brief. Follow the output format exactly:",
-        "## Executive Summary, ## Speaker & Guests, ## Thematic Breakdown, ## Key Takeaways.",
-        f"- Thematic Breakdown has exactly {sections} chapters, each `### Section X: Title`, in time order.",
-    ]
-    spans = section_spans(duration_s, sections)
-    if spans:
-        lines.append("- Each chapter covers this time range (you write the title):")
-        lines += [f"  - Section {i + 1}: {a}–{b}" for i, (a, b) in enumerate(spans)]
-    lines += [
-        "- Every chapter bullet starts with a [HH:MM:SS] timestamp copied from the source, inside that "
-        "chapter's range. 3-4 bullets per chapter.",
-        "- 900-1,100 words total. Do not exceed 1,250 words.",
-    ]
+def normalize_bullet(text: str) -> str:
+    """Strip the list marker and put any leading timestamp in [HH:MM:SS] form."""
+    body = _BULLET.sub("", text).strip()
+    m = _LEAD_TS.match(body)
+    if m:
+        body = f"[{_hms(_to_seconds(m.group(1)))}] {body[m.end():].strip()}"
+    return body
+
+
+def parse_points(text: str) -> list[tuple[int, str]]:
+    """Lines that start with a timestamp → [(seconds, text)]. Used for condense and chapters replies."""
+    out: list[tuple[int, str]] = []
+    for raw in (text or "").splitlines():
+        line = _BULLET.sub("", raw.strip())
+        m = _LEAD_TS.match(line)
+        if m and line[m.end():].strip():
+            out.append((_to_seconds(m.group(1)), line[m.end():].strip().strip("*").strip()))
+    return out
+
+
+def render_points(points: list[tuple[int, str]]) -> str:
+    return "\n".join(f"[{_hms(t)}] {text}" for t, text in points)
+
+
+def parse_outline(text: str, duration_s: float) -> list[tuple[int, str]]:
+    """chapters.md reply → sorted, de-duplicated chapter starts; first forced to 0."""
+    seen: dict[int, str] = {}
+    for t, title in parse_points(text):
+        if t < duration_s and t not in seen:
+            seen[t] = title.strip(" .\"'")
+    starts = sorted(seen.items())
+    if starts:
+        starts[0] = (0, starts[0][1])
+    return starts
+
+
+def outline_problems(starts: list[tuple[int, str]], duration_s: float, target: int) -> list[str]:
+    problems = []
+    if not (3 <= len(starts) <= max(4, target + 2)):
+        problems.append(f"{target} chapters (got {len(starts)})")
+    bounds = [t for t, _ in starts] + [duration_s]
+    longest = max((b - a for a, b in zip(bounds, bounds[1:])), default=0)
+    if duration_s > 20 * 60 and longest > 0.5 * duration_s:
+        problems.append("balanced chapters (one chapter covers over half the video)")
+    return problems
+
+
+def parse_chapter(text: str) -> dict | None:
+    """chapter.md reply → {'theme', 'bullets'}. None when unusable (caller retries)."""
+    theme = ""
+    bullets: list[str] = []
+    for raw in (text or "").splitlines():
+        line = re.sub(r"^\**\s*(THEME)\s*:\s*\**", r"\1:", raw.strip(), flags=re.I)
+        if line.upper().startswith("THEME:"):
+            theme = line[6:].strip().strip("*_").strip()
+        elif _BULLET.match(line):
+            bullets.append(normalize_bullet(line))
+    bullets = [b for b in bullets if b]
+    if len(bullets) < 2:
+        return None
+    return {"theme": theme, "bullets": bullets[:4]}
+
+
+def render_section(i: int, sec: dict) -> str:
+    lines = [f"### Section {i}: {sec['title']}"]
+    if sec.get("theme"):
+        lines.append(f"*{sec['theme']}*")
+    lines += [f"- {b}" for b in sec["bullets"]]
     return "\n".join(lines)
 
 
-def synthesize_user_prompt(
-    *, title: str | None, uploader: str | None, condensed: str, sections: int = 4, duration_s: float | None = None
-) -> str:
-    return (
-        "Synthesize this AI Condensed Transcript into an Executive Brief (under 1,100 words).\n\n"
-        f"{_source_line(title, uploader)}Condensed Transcript:\n{condensed}{format_reminder(sections, duration_s)}"
-    )
+OVERVIEW_KEYS = {"executive summary": "Executive Summary", "speaker": "Speaker & Guests",
+                 "key takeaway": "Key Takeaways"}
 
 
-def single_pass_user_prompt(
-    *, title: str | None, uploader: str | None, transcript: str, sections: int = 4, duration_s: float | None = None
-) -> str:
-    return (
-        "Write an Executive Brief (under 1,100 words) of this video transcript.\n\n"
-        f"{_source_line(title, uploader)}Transcript:\n{transcript}{format_reminder(sections, duration_s)}"
-    )
+def split_overview(text: str) -> dict[str, str]:
+    """Overview reply → {'executive summary': body, 'speaker': body, 'key takeaway': body}."""
+    out: dict[str, str] = {}
+    key = None
+    buf: list[str] = []
+    for line in (text or "").splitlines():
+        if line.startswith("#"):
+            if key:
+                out[key] = "\n".join(buf).strip()
+            name = line.lstrip("#").strip().lower()
+            key = next((k for k in OVERVIEW_KEYS if k in name), name)
+            buf = []
+        elif key:
+            buf.append(line)
+    if key:
+        out[key] = "\n".join(buf).strip()
+    return {k: v for k, v in out.items() if k in OVERVIEW_KEYS and v}
 
+
+def assemble_brief(overview: dict[str, str], sections_md: list[str]) -> str:
+    parts = [f"## {OVERVIEW_KEYS[k]}\n{overview[k]}" for k in ("executive summary", "speaker") if overview.get(k)]
+    parts.append("## Thematic Breakdown\n\n" + "\n\n".join(sections_md))
+    if overview.get("key takeaway"):
+        parts.append(f"## Key Takeaways\n{overview['key takeaway']}")
+    return "\n\n".join(parts).strip() + "\n"
+
+
+# ── Validation ─────────────────────────────────────────────────────────────
 
 REQUIRED_H2 = ("executive summary", "key takeaways")
 MAX_SECTIONS = 7
-_TS = re.compile(r"\[\d{1,2}:\d{2}(?::\d{2})?\]")
 
 
 def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:
-    """Same idea as PodBrief's validateSummaryStructure."""
+    """Same idea as PodBrief's validateSummaryStructure, plus timestamps and chapter count."""
     lines = (summary or "").splitlines()
     h2 = [ln.lower() for ln in lines if ln.startswith("## ")]
     h3 = [ln for ln in lines if ln.startswith("### ")]
@@ -112,7 +215,7 @@ def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:
         missing.append(f"3+ '### Section' chapters (found {len(h3)})")
     elif len(h3) > MAX_SECTIONS:
         missing.append(f"at most {MAX_SECTIONS} chapters (found {len(h3)})")
-    stamps = len(_TS.findall(summary or ""))
+    stamps = sum(1 for ln in lines if _BULLET.match(ln) and _LEAD_TS.match(_BULLET.sub("", ln)))
     if h3 and stamps < 2 * len(h3):
         missing.append(f"[HH:MM:SS] timestamps on chapter bullets (found {stamps})")
     return (not missing, missing)
@@ -120,8 +223,7 @@ def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:
 
 def coverage(summary: str, duration_s: float | None) -> float | None:
     """Last timestamp in the brief as a fraction of the video length (tapering check)."""
-    stamps = [sum(int(x) * 60 ** i for i, x in enumerate(reversed(m.strip("[]").split(":"))))
-              for m in _TS.findall(summary or "")]
+    stamps = [_to_seconds(m.strip("[]")) for m in _TS.findall(summary or "")]
     if not stamps or not duration_s:
         return None
     return round(min(1.0, max(stamps) / duration_s), 2)
@@ -129,8 +231,6 @@ def coverage(summary: str, duration_s: float | None) -> float | None:
 
 def quality_retry_system(system: str, missing: list[str]) -> str:
     return (
-        f"CRITICAL: Your previous output was incomplete (missing: {', '.join(missing)}). "
-        "You MUST produce ALL required sections: Executive Summary, Speaker & Guests, "
-        "Thematic Breakdown with 3-6 '### Section X:' chapters whose bullets start with [HH:MM:SS], "
-        "and Key Takeaways. Stay within 1,250 words.\n\n" + system
+        f"Your previous reply was incomplete (missing: {', '.join(missing)}). "
+        "Follow the format exactly this time.\n\n" + system
     )

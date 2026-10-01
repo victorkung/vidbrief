@@ -15,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("url", help="YouTube watch URL or X status URL")
     parser.add_argument("--model", help="LLM (HF repo id or local path); overrides LLM_MODEL")
     parser.add_argument("--whisper", help="Whisper model: small | medium | turbo | …")
-    parser.add_argument("--mode", choices=MODES, help="two_pass (default) or single_pass")
+    parser.add_argument("--mode", choices=MODES, help="chaptered (default) or single_pass")
     args = parser.parse_args(argv)
 
     for flag, env in ((args.model, "LLM_MODEL"), (args.whisper, "WHISPER_MODEL"), (args.mode, "SUMMARY_MODE")):

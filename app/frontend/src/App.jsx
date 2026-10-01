@@ -31,14 +31,14 @@ function statusClass(b) {
 function StatsLine({ brief }) {
   const s = brief.llm_stats;
   if (!s) return null;
-  const llmSecs = (s.extract?.seconds || 0) + (s.synthesize?.seconds || 0);
-  const tps = s.synthesize?.generation_tps || s.extract?.generation_tps;
+  const llmSecs = s.seconds || 0;
+  const tps = (s.condense || s.single_pass)?.generation_tps;
   const parts = [
     brief.stt_seconds != null && `Whisper ${formatDuration(brief.stt_seconds)}`,
     `${shortModel(s.model)} ${formatDuration(llmSecs)}`,
     tps && `${tps} tok/s`,
-    s.extract?.windows > 1 && `${s.extract.windows} parts`,
-    s.mode === "single_pass" ? "single pass" : "two pass",
+    s.chapters?.chapters && `${s.chapters.chapters} chapters`,
+    s.mode === "single_pass" ? "single pass" : "chaptered",
     "$0",
   ].filter(Boolean);
   return <div className="meta">{parts.map((p) => <span key={p}>{p}</span>)}</div>;
@@ -151,7 +151,7 @@ export default function App() {
   const toolsOk = health?.ok && health?.yt_dlp && health?.ffmpeg;
   const tabs = [
     detail?.brief_md && ["brief", "Brief", detail.brief_md],
-    detail?.condensed_md && ["condensed", "Condensed", detail.condensed_md],
+    detail?.condensed_md && ["condensed", "Key points", detail.condensed_md],
     detail?.transcript && ["transcript", "Transcript", detail.transcript],
   ].filter(Boolean);
   const current = tabs.find((t) => t[0] === tab) || tabs[0];
@@ -251,7 +251,7 @@ export default function App() {
             )}
             {detail?.status === "ready" && (
               <>
-                <button type="button" className="btn small" onClick={() => act(() => api.resummarize(detail.id, "two_pass"))}>
+                <button type="button" className="btn small" onClick={() => act(() => api.resummarize(detail.id, "chaptered"))}>
                   Re-summarize
                 </button>
                 <button type="button" className="btn small" onClick={() => act(() => api.resummarize(detail.id, "single_pass"))}>

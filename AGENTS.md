@@ -15,7 +15,7 @@ Free, local video briefs: `url → yt-dlp (audio) → MLX Whisper → local LLM 
 |------|------|
 | `vidbrief/pipeline.py` | Stage orchestration, resumable from files in `briefs/<folder>/` |
 | `vidbrief/media.py` | yt-dlp probe/download (403 hardening) + Whisper subprocess |
-| `vidbrief/summarize.py` | two_pass (chunked extract → synthesize) or single_pass, validate + retry |
+| `vidbrief/summarize.py` | chaptered (condense → chapters → chapter → overview) or single_pass |
 | `vidbrief/chunking.py` | 60s `HH:MM:SS` paragraphs → token windows |
 | `scripts/llm_run.py` | mlx-lm runner subprocess (frees RAM when the stage ends) |
 | `scripts/transcribe.py` | Chunked MLX Whisper (from clipgenerator) |

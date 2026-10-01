@@ -23,15 +23,19 @@ BANDS = {
     "resolving": (0, 3),
     "downloading": (3, 15),
     "transcribing": (15, 55),
-    "extracting": (55, 85),
-    "synthesizing": (85, 99),
+    "condensing": (55, 78),
+    "chapters": (78, 81),
+    "writing": (81, 93),
+    "synthesizing": (93, 99),
 }
 MESSAGES = {
     "resolving": "Resolving URL…",
     "downloading": "Downloading audio…",
     "transcribing": "Transcribing with Whisper…",
-    "extracting": "Condensing transcript…",
-    "synthesizing": "Writing brief…",
+    "condensing": "Condensing transcript…",
+    "chapters": "Planning chapters…",
+    "writing": "Writing chapters…",
+    "synthesizing": "Writing summary…",
 }
 
 
@@ -112,7 +116,7 @@ def process(
         if resummarize or not a["brief"].is_file():
             if resummarize:
                 a["brief"].unlink(missing_ok=True)
-            progress({"stage": "extracting" if settings.mode == "two_pass" else "synthesizing", "percent": 0})
+            progress({"stage": "condensing" if settings.mode == "chaptered" else "synthesizing", "percent": 0})
             stats = summarize.run(
                 transcript_json=a["transcript_json"], folder=folder, settings=settings,
                 title=brief.get("title"), uploader=brief.get("uploader"), duration_s=brief.get("duration"),

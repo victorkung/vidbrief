@@ -1,4 +1,4 @@
-"""Transcript → timestamped paragraphs → token-bounded windows for pass 1.
+"""Transcript → timestamped paragraphs → token-bounded windows for the condense step.
 
 Paragraphs follow PodBrief production: one `HH:MM:SS` label per ~60s of speech,
 so the model copies literal timestamps instead of inventing them.
@@ -80,3 +80,4 @@ def windows(
     if cur:
         out.append(cur)
     return out
+

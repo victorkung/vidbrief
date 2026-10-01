@@ -63,16 +63,54 @@ def test_too_many_sections_flagged():
     assert any("at most" in m for m in missing)
 
 
-def test_section_count_matches_podbrief():
+def test_section_count_grows_slowly():
     assert prompts.section_count(18 * 60) == 3
-    assert prompts.section_count(37 * 60) == 4
-    assert prompts.section_count(65 * 60) == 5
-    assert prompts.section_count(3 * 3600) == 6
+    assert prompts.section_count(60 * 60) == 4
+    assert prompts.section_count(90 * 60) == 5
+    assert prompts.section_count(150 * 60) == 7
+    assert prompts.section_count(5 * 3600) == 8
+
+
+def test_target_words_sublinear_and_capped():
+    assert prompts.target_words(30 * 60) == 485
+    assert prompts.target_words(3600) == 650
+    assert prompts.target_words(150 * 60) == 1145
+    assert prompts.target_words(5 * 3600) == 1250
 
 
 def test_parse_points_accepts_timestamp_styles():
-    text = "[00:01:00] one\n**00:02:30** two\n- [1:03:05] three\nnot a point"
-    assert prompts.parse_points(text) == [(60, "one"), (150, "two"), (3785, "three")]
+    text = "[00:01:00] one\n**00:02:30** two\n- [1:03:05] three\nnot a point\n★ [00:04:00] big\n- [00:05:00] ★ also"
+    assert prompts.parse_points(text) == [(60, "one", False), (150, "two", False), (3785, "three", False),
+                                          (240, "big", True), (300, "also", True)]
+
+
+def test_points_round_trip_with_stars():
+    pts = [(0, "intro", False), (75, "advice", True)]
+    assert prompts.parse_points(prompts.render_points(pts, bullets=True)) == pts
+
+
+def test_key_points_grouped_by_chapter():
+    pts = [(0, "a", False), (70, "b", True), (200, "c", False)]
+    md = prompts.key_points_md(pts, [(0, "First"), (120, "Second")], 300)
+    assert md.index("### Chapter 1: First") < md.index("- ★ [00:01:10] b") < md.index("### Chapter 2: Second")
+    assert "- [00:03:20] c" in md
+
+
+def test_priorities_injected_into_prompts():
+    text = prompts.load_prompt("chapter")
+    assert "{priorities}" not in text
+    assert "Actionable advice" in text
+
+
+def test_trim_drops_unimportant_bullets_first():
+    secs = [{"title": "T", "intro": "i", "bullets": [
+        "[00:00:10] **A**: important point here", "[00:00:20] **B**: filler " + "word " * 20,
+        "[00:00:30] **C**: also key", "[00:00:40] **D**: extra"]}]
+    out = prompts.trim_sections(secs, budget=17, fixed_words=0, key_ts={10, 30})
+    kept = out[0]["bullets"]
+    assert any("**A**" in b for b in kept) and any("**C**" in b for b in kept)
+    assert len(kept) == 2
+    assert len(secs[0]["bullets"]) == 4  # input untouched
 
 
 def test_parse_outline_sorts_dedupes_and_starts_at_zero():
@@ -97,9 +135,10 @@ def test_assembled_brief_validates():
         "## High-Level Overview\nS.\n## Context\nWho.\n## Key Takeaways\n- **K**: v")
     secs = [prompts.render_section(i, {"title": f"T{i}", "intro": "t", "bullets": [f"[00:0{i}:00] a", f"[00:0{i}:30] b"]})
             for i in range(1, 4)]
-    brief = prompts.assemble_brief(overview, secs)
+    brief = prompts.assemble_brief(overview, secs, "*Title · Channel · Published Aug 5, 2026*")
     ok, missing = prompts.validate_summary_structure(brief)
     assert ok, missing
+    assert brief.startswith("*Title")
     assert brief.index("## Context") < brief.index("### Chapter 1") < brief.index("## Key Takeaways")
 
 

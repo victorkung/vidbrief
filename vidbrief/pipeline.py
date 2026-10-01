@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date
 from pathlib import Path
 from typing import Any, Callable
 
@@ -39,12 +40,23 @@ MESSAGES = {
 }
 
 
+def meta_line(brief: dict[str, Any]) -> str:
+    """Italic line atop brief.md so copied briefs carry their source: title · channel · date · length."""
+    bits = [brief.get("title"), brief.get("uploader")]
+    if brief.get("published"):
+        bits.append("Published " + date.fromisoformat(brief["published"]).strftime("%b %-d, %Y"))
+    if brief.get("duration"):
+        bits.append(f"{round(float(brief['duration']) / 60)} min")
+    return "*" + " · ".join(str(b) for b in bits if b) + "*"
+
+
 def artifacts(folder: Path) -> dict[str, Path]:
     return {
         "audio": folder / "source.m4a",
         "transcript_json": folder / "source.transcript.json",
         "transcript_md": folder / "transcript.md",
         "condensed": folder / "condensed.md",
+        "key_points": folder / "key_points.md",
         "brief": folder / "brief.md",
     }
 
@@ -97,7 +109,8 @@ def process(
             folder = make_project_dir(settings.briefs_dir, title=meta["title"], media_id=meta["id"],
                                       show_name=meta["uploader"])
             update(title=clean_title(meta["title"]), uploader=meta["uploader"], duration=meta["duration"],
-                   url=meta["webpage_url"], folder=str(folder))
+                   url=meta["webpage_url"], folder=str(folder), published=meta["published"],
+                   description=meta["description"])
         folder = Path(brief["folder"])
         a = artifacts(folder)
 
@@ -128,6 +141,7 @@ def process(
             stats = summarize.run(
                 transcript_json=a["transcript_json"], folder=folder, settings=settings,
                 title=brief.get("title"), uploader=brief.get("uploader"), duration_s=brief.get("duration"),
+                description=brief.get("description"), meta_line=meta_line(brief),
                 on_progress=progress, on_proc=on_proc, reuse_condensed=not resummarize,
             )
             update(llm_model=settings.llm_model, mode=settings.mode, llm_stats=stats)

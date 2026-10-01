@@ -17,6 +17,17 @@ function shortModel(id) {
   return String(id || "").split("/").pop();
 }
 
+function formatPublished(iso) {
+  if (!iso) return "";
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatBytes(n) {
+  if (!n) return "0 MB";
+  return n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(0.1, n / 1e6).toFixed(n >= 1e7 ? 0 : 1)} MB`;
+}
+
 function words(text) {
   return (String(text || "").match(/\S+/g) || []).length;
 }
@@ -53,6 +64,7 @@ export default function App() {
   const [whisper, setWhisper] = useState("small");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [detail, setDetail] = useState(null);
   const [tab, setTab] = useState("brief");
   const [copied, setCopied] = useState(false);
@@ -120,6 +132,20 @@ export default function App() {
       await fn();
       if (route.name === "brief") setDetail(await api.get(route.id));
       await refreshList();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function onDelete(b) {
+    if (!window.confirm(`Delete "${b.title || b.url}" and its local files?`)) return;
+    setError("");
+    try {
+      const res = await api.remove(b.id);
+      setNotice(`Deleted · freed ${formatBytes(res?.freed_bytes)}`);
+      setTimeout(() => setNotice(""), 4000);
+      await refreshList();
+      if (route.name === "brief") go("#/");
     } catch (err) {
       setError(err.message);
     }
@@ -198,6 +224,7 @@ export default function App() {
             </button>
           </form>
           {error && <p className="hint danger-text">{error}</p>}
+          {notice && <p className="hint ok-text">{notice}</p>}
           <section className="library">
             <h2 className="section-label">Library</h2>
             {briefs.length === 0 ? (
@@ -205,7 +232,7 @@ export default function App() {
             ) : (
               <ul>
                 {briefs.map((b) => (
-                  <li key={b.id}>
+                  <li key={b.id} className="card-row">
                     <button type="button" className="card" onClick={() => go(`#/b/${b.id}`)}>
                       <div className="card-title">{b.title || b.url}</div>
                       <div className="meta">
@@ -213,8 +240,16 @@ export default function App() {
                           {ACTIVE.has(b.status) ? `${stageLabel(b.stage)} ${Math.round(b.percent || 0)}%` : stageLabel(b.stage)}
                         </span>
                         {b.uploader && <span>{b.uploader}</span>}
+                        {b.published && <span>{formatPublished(b.published)}</span>}
                         {b.duration != null && <span>{formatDuration(b.duration)}</span>}
                       </div>
+                    </button>
+                    <button type="button" className="card-delete" title="Delete brief and its files"
+                      aria-label={`Delete ${b.title || "brief"}`} onClick={() => onDelete(b)}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+                      </svg>
                     </button>
                   </li>
                 ))}
@@ -230,6 +265,7 @@ export default function App() {
           <h1>{detail?.title || "Brief"}</h1>
           <div className="meta">
             {detail?.uploader && <span>{detail.uploader}</span>}
+            {detail?.published && <span>Published {formatPublished(detail.published)}</span>}
             {detail?.duration != null && <span>{formatDuration(detail.duration)}</span>}
             {detail?.url && (
               <a href={detail.url} target="_blank" rel="noreferrer">
@@ -264,11 +300,9 @@ export default function App() {
               <button
                 type="button"
                 className="btn small"
-                onClick={() => {
-                  if (window.confirm("Remove this brief and its files?")) act(() => api.remove(detail.id)).then(() => go("#/"));
-                }}
+                onClick={() => onDelete(detail)}
               >
-                Remove
+                Delete
               </button>
             )}
           </div>

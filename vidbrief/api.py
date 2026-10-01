@@ -6,6 +6,7 @@ import queue
 import shutil
 import subprocess
 import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -55,13 +56,18 @@ def _worker() -> None:
                                       "error": None, "detail": None})
 
 
-threading.Thread(target=_worker, daemon=True).start()
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # Rows left "running" by a previous server process can never finish; mark them resumable.
+    for row in lib.list_briefs():
+        if row.get("status") in {"running", "pending", "queued"}:
+            lib.upsert_brief({**row, "status": "error", "stage": "error", "message": "Interrupted — retry to resume",
+                              "error": "Interrupted — retry to resume"})
+    threading.Thread(target=_worker, daemon=True).start()
+    yield
 
-# Rows left "running" by a previous server process can never finish; mark them resumable.
-for _row in lib.list_briefs():
-    if _row.get("status") in {"running", "pending", "queued"}:
-        lib.upsert_brief({**_row, "status": "error", "stage": "error", "message": "Interrupted — retry to resume",
-                          "error": "Interrupted — retry to resume"})
+
+app.router.lifespan_context = _lifespan
 
 
 def _enqueue(brief_id: str, **opts: Any) -> None:
@@ -111,7 +117,7 @@ def get_brief(brief_id: str) -> dict[str, Any]:
     if row.get("folder"):
         a = pipeline.artifacts(Path(row["folder"]))
         row["brief_md"] = _read(a["brief"])
-        row["condensed_md"] = _read(a["condensed"])
+        row["condensed_md"] = _read(a["key_points"]) or _read(a["condensed"])
         row["transcript"] = _read(a["transcript_md"])
     return row
 
@@ -155,13 +161,28 @@ def cancel(brief_id: str) -> dict[str, Any]:
     return {"ok": True}
 
 
+def _folder_to_delete(row: dict[str, Any]) -> Path | None:
+    """The brief's folder, only if it really lives inside briefs/ (never delete anything else)."""
+    if not row.get("folder"):
+        return None
+    folder = Path(row["folder"]).resolve()
+    root = settings.briefs_dir.resolve()
+    if folder == root or root not in folder.parents or not folder.is_dir():
+        return None
+    return folder
+
+
 @app.delete("/api/briefs/{brief_id}")
 def delete(brief_id: str, files: bool = False) -> dict[str, Any]:
+    """Remove a brief from the library; with files=true also delete its folder (audio, transcript, briefs)."""
     row = lib.get_brief(brief_id)
     if not row:
         raise HTTPException(404, "Brief not found")
     cancel(brief_id)
     lib.delete_brief(brief_id)
-    if files and row.get("folder") and Path(row["folder"]).is_dir():
-        shutil.rmtree(row["folder"], ignore_errors=True)
-    return {"ok": True}
+    freed = 0
+    folder = _folder_to_delete(row) if files else None
+    if folder:
+        freed = sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+        shutil.rmtree(folder, ignore_errors=True)
+    return {"ok": True, "freed_bytes": freed, "deleted_folder": str(folder) if folder else None}

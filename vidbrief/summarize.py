@@ -68,16 +68,18 @@ def _progress(on_progress: ProgressFn | None, stage: str, label: str) -> Callabl
 def condense(
     paras: list[tuple[float, str]],
     *,
+    reference: str,
     settings: Settings,
     on_progress: ProgressFn | None,
     on_proc: Callable | None,
-) -> tuple[list[tuple[int, str]], dict[str, Any]]:
+) -> tuple[list[prompts.Point], dict[str, Any]]:
     wins = chunking.windows(paras, max_tokens=settings.chunk_tokens)
     system = prompts.load_prompt("condense")
     jobs = [
         {
             "system": system,
-            "user": prompts.condense_user_prompt(transcript=chunking.render(w), part=i + 1, parts=len(wins)),
+            "user": prompts.condense_user_prompt(transcript=chunking.render(w), part=i + 1, parts=len(wins),
+                                                 reference=reference),
             "max_tokens": settings.condense_max_tokens,
             "temperature": settings.condense_temperature,
         }
@@ -85,23 +87,26 @@ def condense(
     ]
     results, timing = llm.run_jobs(jobs, model=settings.llm_model, on_proc=on_proc,
                                    on_progress=_progress(on_progress, "condensing", "part"))
-    points: list[tuple[int, str]] = []
+    points: list[prompts.Point] = []
     seen: set[str] = set()
     for w, r in zip(wins, results):
-        for t, text in chunking.ground_timestamps(prompts.parse_points(r.content), w):
-            key = text.lower()[:60]
-            if key not in seen:  # window overlap can repeat a point; drop only true duplicates
-                seen.add(key)
-                points.append((t, text))
+        parsed = prompts.parse_points(r.content)
+        grounded = chunking.ground_timestamps([(t, text) for t, text, _ in parsed], w)
+        for (t, text), (_, _, key) in zip(grounded, parsed):
+            dedupe = text.lower()[:60]
+            if dedupe not in seen:  # window overlap can repeat a point; drop only true duplicates
+                seen.add(dedupe)
+                points.append((t, text, key))
     if not points:
         raise RuntimeError("Condense step produced no timestamped points.")
     stats = _stats(results, [timing])
-    stats.update(windows=len(wins), points=len(points), truncated=sum(r.finish_reason == "length" for r in results))
+    stats.update(windows=len(wins), points=len(points), key_points=sum(k for _, _, k in points),
+                 truncated=sum(r.finish_reason == "length" for r in results))
     return sorted(points, key=lambda p: p[0]), stats
 
 
 def plan_chapters(
-    points: list[tuple[int, str]],
+    points: list[prompts.Point],
     *,
     span_s: float,
     title: str | None,
@@ -141,7 +146,7 @@ def plan_chapters(
 
 
 def write_chapters(
-    points: list[tuple[int, str]],
+    points: list[prompts.Point],
     starts: list[tuple[int, str]],
     *,
     span_s: float,
@@ -149,7 +154,8 @@ def write_chapters(
     settings: Settings,
     on_progress: ProgressFn | None,
     on_proc: Callable | None,
-) -> tuple[list[str], dict[str, Any]]:
+) -> tuple[list[dict], dict[str, Any]]:
+    """One chapter per planned range → [{'title', 'intro', 'bullets'}]."""
     bounds = [t for t, _ in starts] + [span_s]
     ranges = list(zip(bounds, bounds[1:]))
     system = prompts.load_prompt("chapter")
@@ -174,7 +180,7 @@ def write_chapters(
     parsed = [prompts.parse_chapter(r.content) for r in results]
     failed = [i for i, p in enumerate(parsed) if p is None]
     if failed:
-        retry_sys = prompts.quality_retry_system(system, ["INTRO line and 3-4 timestamped bullets"])
+        retry_sys = prompts.quality_retry_system(system, ["INTRO line and 3 timestamped bullets"])
         retries, t2 = llm.run_jobs([job(i, retry_sys, settings.chapter_temperature + 0.2) for i in failed],
                                    model=settings.llm_model, on_proc=on_proc,
                                    on_progress=_progress(on_progress, "writing", "retrying chapter"))
@@ -185,10 +191,10 @@ def write_chapters(
                 "intro": "", "bullets": [prompts.normalize_bullet(ln) for ln in results[i].content.splitlines()
                                          if ln.strip()][:4] or ["(no summary produced)"]}
 
-    sections_md = [prompts.render_section(i + 1, {"title": starts[i][1], **sec}) for i, sec in enumerate(parsed)]
+    sections = [{"title": starts[i][1], **sec} for i, sec in enumerate(parsed)]
     stats = _stats(all_results, timings)
     stats["retried"] = len(failed)
-    return sections_md, stats
+    return sections, stats
 
 
 def write_overview(
@@ -197,6 +203,7 @@ def write_overview(
     *,
     title: str | None,
     uploader: str | None,
+    reference: str,
     settings: Settings,
     on_progress: ProgressFn | None,
     on_proc: Callable | None,
@@ -206,7 +213,7 @@ def write_overview(
     job = {
         "system": system,
         "user": prompts.overview_user_prompt(title=title, uploader=uploader, opening=opening,
-                                             chapters="\n\n".join(sections_md)),
+                                             chapters="\n\n".join(sections_md), reference=reference),
         "max_tokens": settings.overview_max_tokens,
         "temperature": settings.overview_temperature,
     }
@@ -231,6 +238,7 @@ def write_single_pass(
     span_s: float,
     title: str | None,
     uploader: str | None,
+    reference: str,
     settings: Settings,
     on_progress: ProgressFn | None,
     on_proc: Callable | None,
@@ -239,7 +247,7 @@ def write_single_pass(
     job = {
         "system": system,
         "user": prompts.single_pass_user_prompt(title=title, uploader=uploader, transcript=chunking.render(paras),
-                                                sections=prompts.section_count(span_s)),
+                                                sections=prompts.section_count(span_s), reference=reference),
         "max_tokens": settings.single_pass_max_tokens,
         "temperature": settings.overview_temperature,
     }
@@ -268,21 +276,28 @@ def run(
     title: str | None,
     uploader: str | None,
     duration_s: float | None = None,
+    description: str | None = None,
+    meta_line: str | None = None,
     on_progress: ProgressFn | None = None,
     on_proc: Callable | None = None,
     reuse_condensed: bool = False,
 ) -> dict[str, Any]:
-    """Writes transcript.md, condensed.md + sections.md (chaptered) and brief.md into `folder`."""
+    """Writes transcript.md, condensed.md, key_points.md, sections.md (chaptered) and brief.md into `folder`."""
     paras = chunking.paragraphs(chunking.load_segments(transcript_json))
     if not paras:
         raise RuntimeError("Transcript is empty (no speech found).")
     (folder / "transcript.md").write_text(chunking.render(paras) + "\n", encoding="utf-8")
     span_s = float(duration_s or paras[-1][0] + 60)
-    stats: dict[str, Any] = {"mode": settings.mode, "model": settings.llm_model}
+    budget = prompts.target_words(span_s)
+    reference = prompts.reference_block(title=title, uploader=uploader, description=description)
+    stats: dict[str, Any] = {"mode": settings.mode, "model": settings.llm_model, "target_words": budget}
     common = {"settings": settings, "on_progress": on_progress, "on_proc": on_proc}
 
     if settings.mode == "single_pass":
-        brief, s = write_single_pass(paras, span_s=span_s, title=title, uploader=uploader, **common)
+        brief, s = write_single_pass(paras, span_s=span_s, title=title, uploader=uploader, reference=reference,
+                                     **common)
+        if meta_line:
+            brief = f"{meta_line}\n\n{brief}"
         stats["single_pass"] = s
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "single_pass", **s})
     else:
@@ -290,24 +305,35 @@ def run(
         if reuse_condensed and condensed_path.is_file():
             points = prompts.parse_points(condensed_path.read_text(encoding="utf-8"))
         else:
-            points, s = condense(paras, **common)
-            condensed_path.write_text(prompts.render_points(points) + "\n", encoding="utf-8")
+            points, s = condense(paras, reference=reference, **common)
+            condensed_path.write_text(prompts.render_points(points, bullets=True) + "\n", encoding="utf-8")
             stats["condense"] = s
             _ledger(settings, {"folder": _rel(folder, settings), "stage": "condense", **s})
 
         starts, s = plan_chapters(points, span_s=span_s, title=title, **common)
         stats["chapters"] = s
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "chapters", **s})
+        (folder / "key_points.md").write_text(prompts.key_points_md(points, starts, span_s), encoding="utf-8")
 
-        sections_md, s = write_chapters(points, starts, span_s=span_s, title=title, **common)
-        (folder / "sections.md").write_text("\n\n".join(sections_md) + "\n", encoding="utf-8")
+        sections, s = write_chapters(points, starts, span_s=span_s, title=title, **common)
         stats["write"] = s
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "write", **s})
 
-        overview, s = write_overview(paras, sections_md, title=title, uploader=uploader, **common)
+        sections_md = [prompts.render_section(i + 1, sec) for i, sec in enumerate(sections)]
+        overview, s = write_overview(paras, sections_md, title=title, uploader=uploader, reference=reference,
+                                     **common)
         stats["overview"] = s
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "overview", **s})
-        brief = prompts.assemble_brief(overview, sections_md)
+
+        # Hold the length to budget: drop the least important bullets until it fits.
+        fixed = len(prompts.assemble_brief(overview, [], meta_line).split())
+        limit = min(prompts.MAX_WORDS, int(budget * 1.1))
+        trimmed = prompts.trim_sections(sections, budget=limit, fixed_words=fixed,
+                                        key_ts={t for t, _, k in points if k})
+        stats["trimmed_bullets"] = sum(len(a["bullets"]) - len(b["bullets"]) for a, b in zip(sections, trimmed))
+        sections_md = [prompts.render_section(i + 1, sec) for i, sec in enumerate(trimmed)]
+        (folder / "sections.md").write_text("\n\n".join(sections_md) + "\n", encoding="utf-8")
+        brief = prompts.assemble_brief(overview, sections_md, meta_line)
 
     ok, missing = prompts.validate_summary_structure(brief)
     stats.update(valid=ok, missing=missing, coverage=prompts.coverage(brief, span_s),

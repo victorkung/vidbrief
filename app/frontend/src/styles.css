@@ -115,6 +115,25 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-secondar
   transition: border-color 0.15s;
 }
 .card:hover { border-color: hsl(42 70% 60% / 0.6); }
+.card-row { position: relative; }
+.card-row .card { padding-right: 52px; }
+.card-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.card-delete:hover { background: var(--bg-tertiary); color: var(--error); }
+.card-delete:focus-visible { outline: 2px solid var(--gold); }
+.ok-text { color: var(--success); }
 .card-title { font-weight: 600; margin-bottom: 6px; }
 .meta { display: flex; gap: 12px; color: var(--text-secondary); font-size: 13px; flex-wrap: wrap; align-items: center; }
 .meta a { color: var(--gold); text-decoration: none; }

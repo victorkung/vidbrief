@@ -13,7 +13,8 @@ from pathlib import Path
 from .config import ROOT
 
 PROMPTS = ROOT / "prompts"
-NAMES = ("condense", "chapters", "chapter", "overview", "single_pass")
+NAMES = ("priorities", "condense", "chapters", "chapter", "overview", "single_pass")
+Point = tuple[int, str, bool]  # (seconds, text, key) — key marks ★ points (advice, news, predictions)
 
 
 def prompt_path(name: str, *, prompts_dir: Path = PROMPTS) -> Path:
@@ -27,13 +28,27 @@ def prompt_path(name: str, *, prompts_dir: Path = PROMPTS) -> Path:
 
 
 def load_prompt(name: str, *, prompts_dir: Path = PROMPTS) -> str:
-    return prompt_path(name, prompts_dir=prompts_dir).read_text(encoding="utf-8").strip()
+    """Prompt text with `{priorities}` replaced by priorities.md (the reader's idea of 'important')."""
+    text = prompt_path(name, prompts_dir=prompts_dir).read_text(encoding="utf-8").strip()
+    if "{priorities}" in text:
+        priorities = prompt_path("priorities", prompts_dir=prompts_dir).read_text(encoding="utf-8").strip()
+        text = text.replace("{priorities}", priorities)
+    return text
 
 
 def section_count(duration_s: float | None) -> int:
-    """Target chapter count, matching PodBrief: 18 min → 3, 37 → 4, 65 → 5, 88+ → 6."""
+    """Target chapter count: 18 min → 3, 1 h → 4, 1.5 h → 5, 2 h → 6, 2.5 h → 7 (max 8)."""
     minutes = (duration_s or 0) / 60
-    return max(3, min(6, round(2.6 + minutes / 30)))
+    return max(3, min(8, round(2 + minutes / 30)))
+
+
+MAX_WORDS = 1250
+
+
+def target_words(duration_s: float | None) -> int:
+    """Brief length grows sublinearly: ~650 words for 1 h, ~1,150 for 2.5 h, never above 1,250."""
+    hours = (duration_s or 0) / 3600
+    return int(max(450, min(MAX_WORDS, 650 + 330 * (hours - 1))))
 
 
 def _source_line(title: str | None, uploader: str | None) -> str:
@@ -41,9 +56,18 @@ def _source_line(title: str | None, uploader: str | None) -> str:
     return ("VIDEO: " + " — ".join(bits) + "\n\n") if bits else ""
 
 
-def condense_user_prompt(*, transcript: str, part: int, parts: int) -> str:
+def reference_block(*, title: str | None, uploader: str | None, description: str | None) -> str:
+    """Publisher metadata, used only to spell names correctly (YouTube auto-captions mangle them)."""
+    lines = [f"Title: {title}" if title else "", f"Channel: {uploader}" if uploader else "",
+             f"Description: {description.strip()[:1500]}" if description else ""]
+    body = "\n".join(ln for ln in lines if ln)
+    return f"REFERENCE (for spelling names and terms only; do not add facts from it):\n{body}\n\n" if body else ""
+
+
+def condense_user_prompt(*, transcript: str, part: int, parts: int, reference: str = "") -> str:
     scope = f"Part {part} of {parts} of the transcript" if parts > 1 else "Transcript"
-    return f"{scope}:\n\n{transcript}\n\n---\nWrite the key points now, one [HH:MM:SS] line each."
+    return (f"{reference}{scope}:\n\n{transcript}\n\n---\n"
+            "Write the key points now, one [HH:MM:SS] line each, ★ before the most important ones.")
 
 
 def chapters_user_prompt(*, title: str | None, condensed: str, duration_s: float, target: int) -> str:
@@ -58,22 +82,24 @@ def chapter_user_prompt(*, title: str, number: int, start: str, end: str, points
                         video_title: str | None = None) -> str:
     return (
         f"{_source_line(video_title, None)}CHAPTER {number}: {title} ({start}–{end})\n\nKEY POINTS:\n{points}\n\n"
-        "---\nWrite INTRO and 3-4 timestamped bullets for this chapter now."
+        "---\nWrite INTRO and 3 timestamped bullets (4 only if there are 4+ ★ points worth keeping) now."
     )
 
 
-def overview_user_prompt(*, title: str | None, uploader: str | None, opening: str, chapters: str) -> str:
+def overview_user_prompt(*, title: str | None, uploader: str | None, opening: str, chapters: str,
+                         reference: str = "") -> str:
     return (
-        f"{_source_line(title, uploader)}OPENING MINUTES (for who is speaking and why):\n{opening}\n\n"
+        f"{reference or _source_line(title, uploader)}OPENING MINUTES (for who is speaking and why):\n{opening}\n\n"
         f"CHAPTERS:\n{chapters}\n\n"
         "---\nWrite ## High-Level Overview, ## Context, and ## Key Takeaways now."
     )
 
 
-def single_pass_user_prompt(*, title: str | None, uploader: str | None, transcript: str, sections: int) -> str:
+def single_pass_user_prompt(*, title: str | None, uploader: str | None, transcript: str, sections: int,
+                            reference: str = "") -> str:
     return (
-        f"{_source_line(title, uploader)}Transcript:\n{transcript}\n\n"
-        f"---\nWrite the brief now, with exactly {sections} chapters spread evenly across the video."
+        f"{reference or _source_line(title, uploader)}Transcript:\n{transcript}\n\n"
+        f"---\nWrite the brief now, with {sections} chapters in time order."
     )
 
 
@@ -103,25 +129,44 @@ def normalize_bullet(text: str) -> str:
     return body
 
 
-def parse_points(text: str) -> list[tuple[int, str]]:
-    """Lines that start with a timestamp → [(seconds, text)]. Used for condense and chapters replies."""
-    out: list[tuple[int, str]] = []
+def parse_points(text: str) -> list[Point]:
+    """Lines that start with a timestamp → [(seconds, text, key)]. ★ (before or after the stamp) sets key."""
+    out: list[Point] = []
     for raw in (text or "").splitlines():
         line = _BULLET.sub("", raw.strip())
+        key = line.startswith("★")
+        line = line.lstrip("★").strip()
         m = _LEAD_TS.match(line)
-        if m and line[m.end():].strip():
-            out.append((_to_seconds(m.group(1)), line[m.end():].strip().strip("*").strip()))
+        if not m:
+            continue
+        rest = line[m.end():].strip()
+        if rest.startswith("★"):
+            key, rest = True, rest.lstrip("★").strip()
+        rest = rest.strip("*").strip()
+        if rest:
+            out.append((_to_seconds(m.group(1)), rest, key))
     return out
 
 
-def render_points(points: list[tuple[int, str]]) -> str:
-    return "\n".join(f"[{_hms(t)}] {text}" for t, text in points)
+def render_points(points: list[Point], *, bullets: bool = False) -> str:
+    return "\n".join(f"{'- ' if bullets else ''}{'★ ' if key else ''}[{_hms(t)}] {text}" for t, text, key in points)
+
+
+def key_points_md(points: list[Point], starts: list[tuple[int, str]], duration_s: float) -> str:
+    """Condensed points grouped under their chapters, as bullets (the UI's Key points tab)."""
+    bounds = [t for t, _ in starts] + [duration_s + 1]
+    blocks = []
+    for i, (lo, title) in enumerate(starts):
+        inside = [p for p in points if lo <= p[0] < bounds[i + 1]]
+        if inside:
+            blocks.append(f"### Chapter {i + 1}: {title}\n\n{render_points(inside, bullets=True)}")
+    return "\n\n".join(blocks) + "\n"
 
 
 def parse_outline(text: str, duration_s: float) -> list[tuple[int, str]]:
     """chapters.md reply → sorted, de-duplicated chapter starts; first forced to 0."""
     seen: dict[int, str] = {}
-    for t, title in parse_points(text):
+    for t, title, _ in parse_points(text):
         if t < duration_s and t not in seen:
             seen[t] = title.strip(" .\"'")
     starts = sorted(seen.items())
@@ -210,19 +255,43 @@ def split_overview(text: str) -> dict[str, str]:
     return {k: v for k, v in out.items() if k in OVERVIEW_KEYS and v}
 
 
-def assemble_brief(overview: dict[str, str], sections_md: list[str]) -> str:
-    """High-Level Overview, Context, chapters, Key Takeaways (PodBrief's layout)."""
-    parts = [f"## {OVERVIEW_KEYS[k]}\n{overview[k]}" for k in ("overview", "context") if overview.get(k)]
+def assemble_brief(overview: dict[str, str], sections_md: list[str], meta_line: str | None = None) -> str:
+    """Metadata line, High-Level Overview, Context, chapters, Key Takeaways (PodBrief's layout)."""
+    parts = [meta_line] if meta_line else []
+    parts += [f"## {OVERVIEW_KEYS[k]}\n{overview[k]}" for k in ("overview", "context") if overview.get(k)]
     parts += sections_md
     if overview.get("key takeaway"):
         parts.append(f"## Key Takeaways\n{overview['key takeaway']}")
     return "\n\n".join(parts).strip() + "\n"
 
 
+def trim_sections(sections: list[dict], *, budget: int, fixed_words: int, key_ts: set[int]) -> list[dict]:
+    """Drop bullets until the brief fits `budget` words: 4th bullets first, then the least important
+    (non-★, longest) bullet of the wordiest chapter. Never below 2 bullets per chapter."""
+    secs = [dict(s, bullets=list(s["bullets"])) for s in sections]
+
+    def words() -> int:
+        return fixed_words + sum(len(render_section(i + 1, s).split()) for i, s in enumerate(secs))
+
+    def ts_of(bullet: str) -> int | None:
+        m = _LEAD_TS.match(bullet)
+        return _to_seconds(m.group(1)) if m else None
+
+    while words() > budget:
+        pool = [s for s in secs if len(s["bullets"]) > 3] or [s for s in secs if len(s["bullets"]) > 2]
+        if not pool:
+            break
+        sec = max(pool, key=lambda s: len(render_section(0, s).split()))
+        order = sorted(range(len(sec["bullets"])),
+                       key=lambda j: (ts_of(sec["bullets"][j]) in key_ts, -len(sec["bullets"][j].split())))
+        del sec["bullets"][order[0]]
+    return secs
+
+
 # ── Validation ─────────────────────────────────────────────────────────────
 
 REQUIRED_H2 = {"overview": "High-Level Overview", "key takeaways": "Key Takeaways"}
-MAX_SECTIONS = 7
+MAX_SECTIONS = 9
 
 
 def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:

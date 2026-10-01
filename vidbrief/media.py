@@ -62,12 +62,15 @@ def probe_url(url: str) -> dict[str, Any]:
     if proc.returncode != 0 or not proc.stdout.strip():
         raise RuntimeError(f"Could not resolve URL: {(proc.stderr or proc.stdout)[-500:]}")
     meta = json.loads(proc.stdout.strip().splitlines()[-1])
+    upload = str(meta.get("upload_date") or "")
     return {
         "id": meta.get("id"),
         "title": meta.get("title") or "Untitled",
         "uploader": meta.get("uploader") or meta.get("channel") or meta.get("creator"),
         "duration": meta.get("duration"),
         "webpage_url": meta.get("webpage_url") or url,
+        "published": f"{upload[:4]}-{upload[4:6]}-{upload[6:8]}" if len(upload) == 8 else None,
+        "description": (meta.get("description") or "")[:1500] or None,
     }
 
 

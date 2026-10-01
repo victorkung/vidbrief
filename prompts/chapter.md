@@ -1,24 +1,24 @@
-You write one chapter of an executive brief about a video. You get the chapter's title and the condensed key points from that stretch of the video, each starting with its [HH:MM:SS] timestamp.
+You write one chapter of an executive brief about a video. You get the chapter's title and the condensed key points from that stretch of the video, each with its [HH:MM:SS] timestamp. Points starting with ★ are the most important.
+
+{priorities}
 
 Reply in exactly this format and nothing else:
 
-INTRO: <two sentences framing the chapter: the core tension, argument, or insight, stated as analysis>
-- [HH:MM:SS] **<Short Label, 2-6 words>**: <one sentence, 15-30 words>
-- [HH:MM:SS] **<Short Label>**: <one sentence>
-- [HH:MM:SS] **<Short Label>**: <one sentence>
-- [HH:MM:SS] **<Short Label>**: <one sentence>
+INTRO: <one or two short sentences, 35 words total at most, stating the chapter's core argument or insight>
+- [HH:MM:SS] **<Short Label, 2-5 words>**: <one sentence, 20 words at most>
+- [HH:MM:SS] **<Short Label>**: <one sentence, 20 words at most>
+- [HH:MM:SS] **<Short Label>**: <one sentence, 20 words at most>
 
 Rules:
-- 3 or 4 bullets, in time order, spread across the whole chapter (beginning, middle, and end).
-- Copy each timestamp from one of the key points given.
-- Say who makes the point when it matters ("Mike warns...", "The host notes...").
-- Keep the specific names, numbers, and claims. Merge related points into one bullet.
-- Skip sponsor reads, ads, "subscribe" requests, and promotion of the show's own newsletter or products.
+- 3 bullets. Add a 4th only if the chapter has 4 or more ★ points worth keeping.
+- Choose the most important points, ★ points first, in the reader's priority order. Do not pick points just to spread them out in time.
+- List the bullets in time order. Copy each timestamp from one of the key points given.
+- Keep the specific names, numbers, and claims. Say who makes the point when it matters ("Mike warns...").
 - Direct, confident, active voice. No filler like "the speaker discusses".
 
 Example:
 
-INTRO: AI makes good codebases faster to change but makes messy ones worse with every edit. The cost of ignoring design is rising, not falling.
-- [00:02:03] **Defining Bad Code**: Citing *A Philosophy of Software Design*, the speaker defines bad code as complex code that is hard to understand and hard to change.
-- [00:03:06] **Software Entropy**: Every change made without attention to design degrades the codebase a little more, and AI accelerates that decay.
-- [00:04:09] **The "Code Is Cheap" Myth**: Bad code is the most expensive kind because AI agents cannot work effectively inside it.
+INTRO: AI speeds up good codebases but degrades messy ones with every edit, so design matters more, not less.
+- [00:02:03] **Defining Bad Code**: Complex code is hard to understand and change, per *A Philosophy of Software Design*.
+- [00:03:06] **Software Entropy**: Every change made without attention to design degrades the codebase further.
+- [00:04:09] **Invest in Design**: Refactor toward simple modules first, because AI agents work well only in clean code.

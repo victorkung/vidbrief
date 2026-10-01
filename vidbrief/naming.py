@@ -69,6 +69,21 @@ def canonicalize_media_url(url: str) -> str:
     return urlunparse(("https", "www.youtube.com", "/watch", "", urlencode({"v": vid}), ""))
 
 
+def media_key(url: str) -> str:
+    """Stable identity for duplicate checks: 'youtube:<id>', 'x:<status id>', else the canonical URL."""
+    raw = canonicalize_media_url(url)
+    parsed = urlparse(raw)
+    host = (parsed.hostname or "").lower()
+    if host in _YT_HOSTS:
+        vid = (parse_qs(parsed.query).get("v") or [""])[0]
+        if _YT_ID.match(vid):
+            return f"youtube:{vid}"
+    m = re.search(r"/status/(\d+)", parsed.path or "")
+    if host in {"x.com", "twitter.com", "www.x.com", "www.twitter.com"} and m:
+        return f"x:{m.group(1)}"
+    return raw
+
+
 def is_supported_url(url: str) -> bool:
     raw = canonicalize_media_url(url)
     parsed = urlparse(raw)

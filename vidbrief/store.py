@@ -74,6 +74,25 @@ class Library:
             self._write(data)
         return brief
 
+    def update(self, brief_id: str, *, only_if_status: set[str] | None = None, **fields: Any) -> dict[str, Any] | None:
+        """Merge `fields` into one row atomically (no read-modify-write race with other threads).
+
+        With `only_if_status`, the update is skipped unless the row's status is in that set.
+        Returns the updated row, or None if the row is missing or the guard failed.
+        """
+        with self._lock:
+            data = self._read()
+            for row in data.get("briefs") or []:
+                if row.get("id") != brief_id:
+                    continue
+                if only_if_status is not None and row.get("status") not in only_if_status:
+                    return None
+                row.update(fields)
+                row["updated_at"] = _now()
+                self._write(data)
+                return dict(row)
+        return None
+
     def delete_brief(self, brief_id: str) -> bool:
         with self._lock:
             data = self._read()

@@ -17,6 +17,16 @@ function shortModel(id) {
   return String(id || "").split("/").pop();
 }
 
+const LINK_RE = /https?:\/\/[^\s,<>"']+/g;
+
+function extractLinks(text) {
+  return [...new Set(String(text || "").match(LINK_RE) || [])];
+}
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
 function formatPublished(iso) {
   if (!iso) return "";
   const d = new Date(`${iso}T12:00:00`);
@@ -97,6 +107,8 @@ export default function App() {
 
   const running = Boolean(detail && ACTIVE.has(detail.status));
   const listRunning = briefs.some((b) => ACTIVE.has(b.status));
+  const queueLength = briefs.filter((b) => b.queue_position).length;
+  const linkCount = extractLinks(url).length;
 
   useEffect(() => {
     if (route.name !== "home") return undefined;
@@ -153,15 +165,30 @@ export default function App() {
 
   async function onAdd(e) {
     e.preventDefault();
-    const value = url.trim();
-    if (!value) return;
+    const links = extractLinks(url);
+    if (!links.length) {
+      setError("Paste a YouTube or X video link.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      const created = await api.ingest(value, whisper);
+      if (links.length === 1) {
+        const created = await api.ingest(links[0], whisper);
+        setUrl("");
+        await refreshList();
+        go(`#/b/${created.id}`);
+        return;
+      }
+      // Several links: queue them all and stay on the library; they run one at a time.
+      const res = await api.ingestBatch(links, whisper);
       setUrl("");
+      const counts = {};
+      for (const s of res.skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
+      const parts = [`Queued ${plural(res.queued.length, "video")}`, ...Object.entries(counts).map(([r, n]) => `${n} ${r}`)];
+      setNotice(parts.join(" · "));
+      setTimeout(() => setNotice(""), 6000);
       await refreshList();
-      go(`#/b/${created.id}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -194,6 +221,7 @@ export default function App() {
             <i className="dot" />
             {health == null ? "connecting…" : toolsOk ? "local" : "API offline or tools missing"}
           </span>
+          {queueLength > 0 && <span className="chip">{queueLength} in queue</span>}
           {health?.llm_model && <span className="chip">{shortModel(health.llm_model)}</span>}
         </div>
       </header>
@@ -208,10 +236,15 @@ export default function App() {
             this Mac. Free and private.
           </p>
           <form className="ingest" onSubmit={onAdd}>
-            <input
+            <textarea
               value={url}
+              rows={Math.min(8, Math.max(1, url.split("\n").length))}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…  or  https://x.com/…/status/…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) onAdd(e);
+              }}
+              placeholder="Paste one or more YouTube or X links"
+              aria-label="Video links"
               autoFocus
             />
             <select value={whisper} onChange={(e) => setWhisper(e.target.value)} title="Whisper model">
@@ -219,8 +252,8 @@ export default function App() {
               <option value="medium">Whisper medium</option>
               <option value="turbo">Whisper turbo · accurate</option>
             </select>
-            <button type="submit" className="btn primary" disabled={busy || !url.trim()}>
-              {busy ? "Adding…" : "Brief it"}
+            <button type="submit" className="btn primary" disabled={busy || !linkCount}>
+              {busy ? "Adding…" : linkCount > 1 ? `Brief ${linkCount} videos` : "Brief it"}
             </button>
           </form>
           {error && <p className="hint danger-text">{error}</p>}
@@ -234,10 +267,12 @@ export default function App() {
                 {briefs.map((b) => (
                   <li key={b.id} className="card-row">
                     <button type="button" className="card" onClick={() => go(`#/b/${b.id}`)}>
-                      <div className="card-title">{b.title || b.url}</div>
+                      <div className="card-title">{b.title && b.title !== "Resolving…" ? b.title : b.url}</div>
                       <div className="meta">
                         <span className={statusClass(b)}>
-                          {ACTIVE.has(b.status) ? `${stageLabel(b.stage)} ${Math.round(b.percent || 0)}%` : stageLabel(b.stage)}
+                          {b.queue_position
+                            ? `Queued · #${b.queue_position} in line`
+                            : ACTIVE.has(b.status) ? `${stageLabel(b.stage)} ${Math.round(b.percent || 0)}%` : stageLabel(b.stage)}
                         </span>
                         {b.uploader && <span>{b.uploader}</span>}
                         {b.published && <span>{formatPublished(b.published)}</span>}

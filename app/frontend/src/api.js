@@ -31,6 +31,12 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ url, whisper_model: whisperModel }),
     }),
+  ingestBatch: (urls, whisperModel) =>
+    request("/api/ingest/batch", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ urls, whisper_model: whisperModel }),
+    }),
   resummarize: (id, mode) =>
     request(`/api/briefs/${id}/resummarize`, {
       method: "POST",

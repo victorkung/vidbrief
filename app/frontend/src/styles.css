@@ -72,16 +72,16 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-secondar
 .home h1 em { background: var(--gold-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lede { color: var(--text-secondary); margin: 0 0 28px; max-width: 52ch; }
 
-.ingest { display: flex; gap: 8px; }
-.ingest input, .ingest select, .select {
+.ingest { display: flex; gap: 8px; align-items: flex-start; }
+.ingest textarea, .ingest select, .select {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
 }
-.ingest input { flex: 1; min-width: 0; }
-.ingest input::placeholder { color: var(--text-tertiary); }
-.ingest input:focus, .ingest select:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.ingest textarea { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.5; }
+.ingest textarea::placeholder { color: var(--text-tertiary); }
+.ingest textarea:focus, .ingest select:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
 
 .btn {
   border: 1px solid var(--border);
@@ -171,6 +171,6 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-secondar
 
 @media (max-width: 640px) {
   .top { padding: 12px 16px; }
-  .ingest { flex-direction: column; }
+  .ingest { flex-direction: column; align-items: stretch; }
   .home, .reader { padding-top: 32px; }
 }

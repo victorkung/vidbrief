@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import queue
 import shutil
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -13,68 +13,146 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from . import pipeline
+from . import media, pipeline
 from .config import MODES, load_settings
+from .naming import clean_title, is_supported_url, media_key
 
 app = FastAPI(title="VidBrief")
 settings = load_settings()
 lib = pipeline.library(settings)
 
-_jobs: "queue.Queue[tuple[str, dict[str, Any]]]" = queue.Queue()
+# One job at a time: Whisper and the LLM each need several GB, so jobs must never overlap.
+# `_pending` is the ordered wait list; `_active` is the job running now.
+_pending: list[tuple[str, dict[str, Any]]] = []
+_cv = threading.Condition()
 _active: dict[str, Any] = {"id": None, "proc": None, "cancelled": set()}
-_lock = threading.Lock()
+_run_lock = threading.Lock()  # held for a whole job: even a second worker thread can't overlap jobs
+_worker_started = threading.Event()
+_resolver = ThreadPoolExecutor(max_workers=2, thread_name_prefix="resolve")
+PLACEHOLDER_TITLE = "Resolving…"
+MAX_BATCH = 25
+STOP = "__stop__"
 
 
 def _set_proc(proc: subprocess.Popen) -> None:
-    with _lock:
+    with _cv:
         _active["proc"] = proc
 
 
 def _worker() -> None:
     while True:
-        brief_id, opts = _jobs.get()
-        if brief_id in _active["cancelled"]:
+        with _run_lock:
+            if not _run_one():
+                return
+
+
+def stop_worker() -> None:
+    """Ask one worker thread to exit after its current job (used by tests)."""
+    with _cv:
+        _pending.append((STOP, {}))
+        _cv.notify()
+
+
+def _start_worker() -> None:
+    if not _worker_started.is_set():
+        _worker_started.set()
+        threading.Thread(target=_worker, daemon=True, name="vidbrief-worker").start()
+
+
+def _run_one() -> bool:
+    """Take the next brief off the wait list and run it to completion (caller holds _run_lock).
+    Returns False when told to stop."""
+    with _cv:
+        while not _pending:
+            _cv.wait()
+        brief_id, opts = _pending.pop(0)
+        if brief_id == STOP:
+            return False
+        _active.update(id=brief_id, proc=None)
+    try:
+        s = load_settings()
+        if opts.get("mode") in MODES:
+            s.mode = opts["mode"]
+        pipeline.process(brief_id, s, lib, on_proc=_set_proc, resummarize=bool(opts.get("resummarize")))
+    except Exception:  # noqa: BLE001 — error is recorded on the brief row
+        pass
+    finally:
+        with _cv:
+            _active.update(id=None, proc=None)
+            was_cancelled = brief_id in _active["cancelled"]
             _active["cancelled"].discard(brief_id)
-            continue
-        with _lock:
-            _active["id"] = brief_id
-        try:
-            s = load_settings()
-            if opts.get("mode") in MODES:
-                s.mode = opts["mode"]
-            pipeline.process(brief_id, s, lib, on_proc=_set_proc, resummarize=bool(opts.get("resummarize")))
-        except Exception:  # noqa: BLE001 — error is recorded on the brief row
-            pass
-        finally:
-            with _lock:
-                _active.update(id=None, proc=None)
-            if brief_id in _active["cancelled"]:
-                _active["cancelled"].discard(brief_id)
-                row = lib.get_brief(brief_id)
-                if row:
-                    lib.upsert_brief({**row, "status": "cancelled", "stage": "cancelled", "message": "Cancelled",
-                                      "error": None, "detail": None})
+        if was_cancelled:
+            lib.update(brief_id, status="cancelled", stage="cancelled", message="Cancelled", error=None,
+                       detail=None)
+    return True
+
+
+def _resolve(brief_id: str) -> None:
+    """Fill in title/channel/date for a queued brief so the library shows it while it waits.
+    Network only (yt-dlp metadata); never touches status or folder, so it can't race the worker."""
+    row = lib.get_brief(brief_id)
+    if not row or row.get("folder") or row.get("title") not in (None, "", PLACEHOLDER_TITLE):
+        return
+    try:
+        meta = media.probe_url(row["url"])
+    except Exception:  # noqa: BLE001 — the worker will surface real errors when it runs
+        return
+    lib.update(brief_id, only_if_status={"queued", "pending"}, title=clean_title(meta["title"]),
+               uploader=meta["uploader"], duration=meta["duration"], published=meta["published"],
+               description=meta["description"])
+
+
+def _enqueue(brief_id: str, *, front: bool = False, **opts: Any) -> bool:
+    """Queue a brief (no-op if it's already waiting or running). Returns True if queued."""
+    with _cv:
+        if _active["id"] == brief_id or any(pid == brief_id for pid, _ in _pending):
+            return False
+        _active["cancelled"].discard(brief_id)
+        lib.update(brief_id, status="queued", stage="queued", message="Queued", error=None, detail=None)
+        _pending.insert(0, (brief_id, opts)) if front else _pending.append((brief_id, opts))
+        _cv.notify()
+    _resolver.submit(_resolve, brief_id)
+    return True
+
+
+def _queue_positions() -> dict[str, int]:
+    with _cv:
+        return {pid: i + 1 for i, (pid, _) in enumerate(p for p in _pending if p[0] != STOP)}
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
-    # Rows left "running" by a previous server process can never finish; mark them resumable.
-    for row in lib.list_briefs():
-        if row.get("status") in {"running", "pending", "queued"}:
-            lib.upsert_brief({**row, "status": "error", "stage": "error", "message": "Interrupted — retry to resume",
-                              "error": "Interrupted — retry to resume"})
-    threading.Thread(target=_worker, daemon=True).start()
+    # Resume what a previous server left unfinished: the running job first, then the queue in order.
+    # pipeline.process picks up from the files already on disk.
+    leftover = [r for r in lib.list_briefs() if r.get("status") in {"running", "queued", "pending"}]
+    leftover.sort(key=lambda r: (r.get("status") != "running", str(r.get("created_at") or "")))
+    for row in leftover:
+        _enqueue(row["id"])
+    _start_worker()
     yield
 
 
 app.router.lifespan_context = _lifespan
 
 
-def _enqueue(brief_id: str, **opts: Any) -> None:
-    row = lib.get_brief(brief_id)
-    if row:
-        lib.upsert_brief({**row, "status": "queued", "stage": "queued", "message": "Queued", "error": None})
-    _jobs.put((brief_id, opts))
+def _submit(url: str, whisper_model: str | None) -> tuple[dict[str, Any] | None, str | None]:
+    """Create-and-queue one URL. Returns (row, None) or (existing_row_or_None, reason skipped)."""
+    url = (url or "").strip()
+    if not is_supported_url(url):
+        return None, "not a YouTube or X video link"
+    key = media_key(url)
+    existing = next((b for b in lib.list_briefs() if b.get("url") and media_key(b["url"]) == key), None)
+    if existing:
+        if existing.get("status") in {"error", "cancelled"}:
+            _enqueue(existing["id"])  # resume from its files instead of duplicating
+            return lib.get_brief(existing["id"]), None
+        return existing, "already in library"
+    s = load_settings()
+    if whisper_model:
+        s.whisper_model = whisper_model
+    row = pipeline.create(url, s, lib)
+    _enqueue(row["id"])
+    return lib.get_brief(row["id"]), None
 
 
 def _read(path: Path) -> str | None:
@@ -83,6 +161,11 @@ def _read(path: Path) -> str | None:
 
 class IngestBody(BaseModel):
     url: str
+    whisper_model: str | None = None
+
+
+class BatchBody(BaseModel):
+    urls: list[str]
     whisper_model: str | None = None
 
 
@@ -101,12 +184,18 @@ def health() -> dict[str, Any]:
         "yt_dlp": bool(shutil.which("yt-dlp")),
         "ffmpeg": bool(shutil.which("ffmpeg")),
         "active": _active["id"],
+        "queue_length": len(_queue_positions()),
     }
 
 
 @app.get("/api/briefs")
 def list_briefs() -> list[dict[str, Any]]:
-    return lib.list_briefs()
+    positions = _queue_positions()
+    rows = lib.list_briefs()
+    for row in rows:
+        if row["id"] in positions:
+            row["queue_position"] = positions[row["id"]]
+    return rows
 
 
 @app.get("/api/briefs/{brief_id}")
@@ -124,15 +213,32 @@ def get_brief(brief_id: str) -> dict[str, Any]:
 
 @app.post("/api/ingest")
 def ingest(body: IngestBody) -> dict[str, Any]:
-    s = load_settings()
-    if body.whisper_model:
-        s.whisper_model = body.whisper_model
-    try:
-        row = pipeline.create(body.url, s, lib)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    _enqueue(row["id"])
-    return row
+    """One URL. A URL already in the library returns that brief instead of a duplicate."""
+    row, reason = _submit(body.url, body.whisper_model)
+    if row is None:
+        raise HTTPException(400, "Paste a YouTube watch URL or an X status URL.")
+    return {**row, "skipped": reason}
+
+
+@app.post("/api/ingest/batch")
+def ingest_batch(body: BatchBody) -> dict[str, Any]:
+    """Several URLs at once. They queue in order and run one at a time."""
+    urls = [u.strip() for u in body.urls if u.strip()]
+    if len(urls) > MAX_BATCH:
+        raise HTTPException(400, f"At most {MAX_BATCH} links at a time.")
+    queued, skipped, seen = [], [], set()
+    for url in urls:
+        key = media_key(url) if is_supported_url(url) else url
+        if key in seen:
+            skipped.append({"url": url, "reason": "duplicate in this batch"})
+            continue
+        seen.add(key)
+        row, reason = _submit(url, body.whisper_model)
+        if reason:
+            skipped.append({"url": url, "reason": reason, "id": row["id"] if row else None})
+        else:
+            queued.append(row["id"])
+    return {"queued": queued, "skipped": skipped}
 
 
 @app.post("/api/briefs/{brief_id}/retry")
@@ -154,10 +260,15 @@ def resummarize(brief_id: str, body: ResummarizeBody) -> dict[str, Any]:
 
 @app.post("/api/briefs/{brief_id}/cancel")
 def cancel(brief_id: str) -> dict[str, Any]:
-    _active["cancelled"].add(brief_id)
-    with _lock:
-        if _active["id"] == brief_id and _active["proc"] and _active["proc"].poll() is None:
-            _active["proc"].terminate()
+    with _cv:
+        waiting = any(pid == brief_id for pid, _ in _pending)
+        _pending[:] = [(pid, o) for pid, o in _pending if pid != brief_id]
+        if _active["id"] == brief_id:
+            _active["cancelled"].add(brief_id)  # the worker marks it cancelled when the process exits
+            if _active["proc"] and _active["proc"].poll() is None:
+                _active["proc"].terminate()
+    if waiting:
+        lib.update(brief_id, status="cancelled", stage="cancelled", message="Cancelled", error=None, detail=None)
     return {"ok": True}
 
 

@@ -27,6 +27,8 @@ def main() -> None:
     parser.add_argument("--models", nargs="+", required=True)
     parser.add_argument("--videos", nargs="*", help="Folder names under briefs/ (default: all transcribed)")
     parser.add_argument("--mode", choices=MODES)
+    parser.add_argument("--reuse-condensed", action="store_true",
+                        help="Reuse each model's condensed.md from a previous run (re-runs chapters onward)")
     args = parser.parse_args()
 
     settings = load_settings()
@@ -51,7 +53,7 @@ def main() -> None:
                 s = summarize.run(
                     transcript_json=folder / "source.transcript.json", folder=out, settings=settings,
                     title=meta.get("title"), uploader=meta.get("uploader"), duration_s=meta.get("duration"),
-                    description=meta.get("description"), meta_line=pipeline.meta_line(meta), reuse_condensed=False,
+                    description=meta.get("description"), meta_line=pipeline.meta_line(meta), reuse_condensed=args.reuse_condensed,
                 )
             except Exception as exc:  # noqa: BLE001
                 rows.append((folder.name, model, "ERROR", str(exc)[:80]))

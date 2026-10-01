@@ -255,6 +255,23 @@ def split_overview(text: str) -> dict[str, str]:
     return {k: v for k, v in out.items() if k in OVERVIEW_KEYS and v}
 
 
+def _words_of(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", re.sub(r"\*\*[^*]+\*\*:?|\[[\d:]+\]", "", text.lower())))
+
+
+def copied_takeaways(takeaways: str, sections_md: list[str], threshold: float = 0.7) -> int:
+    """How many takeaway bullets are near-copies (word overlap ≥ threshold) of a chapter bullet."""
+    bullets = [_words_of(ln) for sec in sections_md for ln in sec.splitlines() if _BULLET.match(ln)]
+    count = 0
+    for ln in takeaways.splitlines():
+        if not _BULLET.match(ln):
+            continue
+        t = _words_of(ln)
+        if t and any(len(t & b) / len(t | b) >= threshold for b in bullets if b):
+            count += 1
+    return count
+
+
 def assemble_brief(overview: dict[str, str], sections_md: list[str], meta_line: str | None = None) -> str:
     """Metadata line, High-Level Overview, Context, chapters, Key Takeaways (PodBrief's layout)."""
     parts = [meta_line] if meta_line else []

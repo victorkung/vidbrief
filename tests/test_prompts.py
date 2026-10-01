@@ -153,3 +153,11 @@ def test_merge_short_chapters_folds_cold_open_forward():
 def test_merge_short_chapters_keeps_minimum_three():
     starts = [(0, "A"), (30, "B"), (60, "C")]
     assert prompts.merge_short_chapters(starts, 3600, 4) == starts
+
+
+def test_copied_takeaways_detected():
+    secs = ["### Chapter 1: T\nIntro\n\n- [00:01:00] **Deep Modules**: Structure code with few large modules and simple interfaces."]
+    copied = "- **Deep Modules**: Structure code with few large modules and simple interfaces."
+    fresh = "- **Design First**: Spend your time on architecture and let AI handle implementation details."
+    assert prompts.copied_takeaways(copied, secs) == 1
+    assert prompts.copied_takeaways(fresh, secs) == 0

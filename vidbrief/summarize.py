@@ -221,14 +221,21 @@ def write_overview(
     [res], timing = llm.run_jobs([job], model=settings.llm_model, on_proc=on_proc, on_progress=prog)
     results, timings = [res], [timing]
     overview = prompts.split_overview(res.content)
-    if len(overview) < len(prompts.OVERVIEW_KEYS):
+    copied = prompts.copied_takeaways(overview.get("key takeaway", ""), sections_md)
+    if len(overview) < len(prompts.OVERVIEW_KEYS) or copied >= 2:
         missing = [h for k, h in prompts.OVERVIEW_KEYS.items() if k not in overview]
+        if copied >= 2:
+            missing.append("Key Takeaways in your own words (they repeated chapter bullets; synthesize across chapters)")
         retry_job = dict(job, system=prompts.quality_retry_system(system, missing))
         [retry], t2 = llm.run_jobs([retry_job], model=settings.llm_model, on_proc=on_proc, on_progress=prog)
         results.append(retry)
         timings.append(t2)
         again = prompts.split_overview(retry.content)
-        overview = {**again, **overview} if len(overview) >= len(again) else {**overview, **again}
+        if copied >= 2 and len(again) == len(prompts.OVERVIEW_KEYS) and \
+                prompts.copied_takeaways(again.get("key takeaway", ""), sections_md) < copied:
+            overview = again
+        else:
+            overview = {**again, **overview} if len(overview) >= len(again) else {**overview, **again}
     return overview, _stats(results, timings)
 
 

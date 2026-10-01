@@ -1,6 +1,6 @@
 # AGENTS.md — VidBrief
 
-Free, local video briefs: `url → yt-dlp (audio) → MLX Whisper → local LLM (mlx-lm) → brief.md`. Apple Silicon only. No API keys.
+Free, local video briefs: `url → YouTube captions or (yt-dlp audio → MLX Whisper) → local LLM (mlx-lm) → brief.md`. Apple Silicon only. No API keys.
 
 ## Get started (first clone)
 
@@ -14,12 +14,13 @@ Free, local video briefs: `url → yt-dlp (audio) → MLX Whisper → local LLM 
 | Path | What |
 |------|------|
 | `vidbrief/pipeline.py` | Stage orchestration, resumable from files in `briefs/<folder>/` |
-| `vidbrief/media.py` | yt-dlp probe/download (403 hardening) + Whisper subprocess |
+| `vidbrief/media.py` | yt-dlp probe/download (403 hardening), YouTube captions, Whisper subprocess |
 | `vidbrief/summarize.py` | chaptered (condense → chapters → chapter → overview) or single_pass |
-| `vidbrief/chunking.py` | 60s `HH:MM:SS` paragraphs → token windows |
+| `vidbrief/chunking.py` | 60s `HH:MM:SS` paragraphs → token windows; grounds condensed timestamps in the transcript |
 | `scripts/llm_run.py` | mlx-lm runner subprocess (frees RAM when the stage ends) |
 | `scripts/transcribe.py` | Chunked MLX Whisper (from clipgenerator) |
 | `prompts/*.md` | Default prompts; `prompts/private/<same name>.md` overrides (gitignored) |
+| `docs/reference/` | PodBrief reference briefs (format and voice guide) |
 | `data/ledger.jsonl` | Per-stage tokens, tok/s, seconds, peak memory |
 
 ## Rules

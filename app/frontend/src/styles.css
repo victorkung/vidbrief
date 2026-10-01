@@ -73,15 +73,27 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-secondar
 .lede { color: var(--text-secondary); margin: 0 0 28px; max-width: 52ch; }
 
 .ingest { display: flex; gap: 8px; align-items: flex-start; }
-.ingest textarea, .ingest select, .select {
+.ingest textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font: inherit;
+  line-height: 1.5;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
 }
-.ingest textarea { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.5; }
 .ingest textarea::placeholder { color: var(--text-tertiary); }
-.ingest textarea:focus, .ingest select:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.ingest textarea:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.ingest .btn { height: 50px; padding: 0 22px; }
+.whisper-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; }
+.whisper-label { color: var(--text-secondary); }
+.whisper-help { color: var(--text-tertiary); }
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-secondary); border-radius: 999px; }
+.seg button { border: 0; background: transparent; color: var(--text-secondary); border-radius: 999px; padding: 4px 14px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.seg button.on { background: var(--bg-tertiary); color: var(--text); }
+.seg button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
 .btn {
   border: 1px solid var(--border);

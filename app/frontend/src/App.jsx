@@ -232,8 +232,8 @@ export default function App() {
             Any video, <em>briefed</em>.
           </h1>
           <p className="lede">
-            Paste a YouTube or X link. Whisper transcribes it and an open-source model writes the brief, all on
-            this Mac. Free and private.
+            Paste YouTube or X links. VidBrief pulls the transcript and an open-source model writes the brief, all
+            on this Mac. Free and private.
           </p>
           <form className="ingest" onSubmit={onAdd}>
             <textarea
@@ -247,20 +247,28 @@ export default function App() {
               aria-label="Video links"
               autoFocus
             />
-            <select value={whisper} onChange={(e) => setWhisper(e.target.value)} aria-describedby="whisper-help"
-              title="Transcription model, used only when a video has no captions">
-              <option value="turbo">Turbo · most accurate</option>
-              <option value="small">Small · faster</option>
-            </select>
             <button type="submit" className="btn primary" disabled={busy || !linkCount}>
               {busy ? "Adding…" : linkCount > 1 ? `Brief ${linkCount} videos` : "Brief it"}
             </button>
           </form>
-          <p className="hint" id="whisper-help">
-            YouTube videos with captions skip transcription entirely. For X videos and YouTube videos without
-            captions, Whisper transcribes on this Mac: <strong>Turbo</strong> gets names and numbers right more
-            often; <strong>Small</strong> is faster but mishears more.
-          </p>
+          <div className="whisper-row">
+            <span className="whisper-label" id="whisper-label">Transcription</span>
+            <div className="seg" role="radiogroup" aria-labelledby="whisper-label">
+              {[
+                ["turbo", "Turbo"],
+                ["small", "Small"],
+              ].map(([value, label]) => (
+                <button key={value} type="button" role="radio" aria-checked={whisper === value}
+                  className={whisper === value ? "on" : ""} onClick={() => setWhisper(value)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="whisper-help">
+              {whisper === "turbo" ? "Most accurate on names and numbers." : "Faster, but mishears more."} Only used
+              for X videos and YouTube videos without captions.
+            </span>
+          </div>
           {error && <p className="hint danger-text">{error}</p>}
           {notice && <p className="hint ok-text">{notice}</p>}
           <section className="library">

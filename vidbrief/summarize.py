@@ -137,10 +137,10 @@ def plan_chapters(
         results.append(retry)
         timings.append(t2)
         again = prompts.parse_outline(retry.content, span_s)
-        if len(prompts.outline_problems(again, span_s, target)) < len(problems) or len(starts) < 3:
+        if len(prompts.outline_problems(again, span_s, target)) < len(problems) or not starts:
             starts = again
-    if len(starts) < 3:
-        raise RuntimeError("Could not plan chapters (model returned fewer than 3).")
+    if not starts:
+        starts = [(0, title or "Overview")]  # a clip too short to split; one chapter covers it
     starts = prompts.merge_short_chapters(starts, span_s, target)
     stats = _stats(results, timings)
     stats["chapters"] = len(starts)
@@ -162,15 +162,19 @@ def write_chapters(
     ranges = list(zip(bounds, bounds[1:]))
     system = prompts.load_prompt("chapter")
 
+    def _inside(i: int) -> list[prompts.Point]:
+        lo, hi = ranges[i]
+        return [p for p in points if lo <= p[0] < hi] or [min(points, key=lambda p: abs(p[0] - lo))]
+
     def job(i: int, sys_prompt: str, temperature: float) -> dict[str, Any]:
         lo, hi = ranges[i]
-        inside = [p for p in points if lo <= p[0] < hi] or [min(points, key=lambda p: abs(p[0] - lo))]
+        inside = _inside(i)
         return {
             "system": sys_prompt,
             "user": prompts.chapter_user_prompt(
                 title=starts[i][1], number=i + 1, start=chunking.format_hms(lo), end=chunking.format_hms(hi),
                 points=prompts.render_points(inside), video_title=title,
-                bullets=prompts.bullet_count(lo, hi, sum(k for _, _, k in inside)),
+                bullets=prompts.bullet_count(lo, hi, sum(k for _, _, k in inside), points=len(inside)),
             ),
             "max_tokens": settings.chapter_max_tokens,
             "temperature": temperature,
@@ -180,7 +184,8 @@ def write_chapters(
     results, timing = llm.run_jobs(jobs, model=settings.llm_model, on_proc=on_proc,
                                    on_progress=_progress(on_progress, "writing", "chapter"))
     all_results, timings = list(results), [timing]
-    parsed = [prompts.parse_chapter(r.content) for r in results]
+    min_bullets = [min(2, prompts.bullet_count(*ranges[i], 0, points=len(_inside(i)))) for i in range(len(starts))]
+    parsed = [prompts.parse_chapter(r.content, min_bullets[i]) for i, r in enumerate(results)]
     failed = [i for i, p in enumerate(parsed) if p is None]
     if failed:
         retry_sys = prompts.quality_retry_system(system, ["INTRO line and 3 timestamped bullets"])
@@ -190,7 +195,7 @@ def write_chapters(
         all_results += retries
         timings.append(t2)
         for i, r in zip(failed, retries):
-            parsed[i] = prompts.parse_chapter(r.content) or {
+            parsed[i] = prompts.parse_chapter(r.content, min_bullets[i]) or {
                 "intro": "", "bullets": [prompts.normalize_bullet(ln) for ln in results[i].content.splitlines()
                                          if ln.strip()][:4] or ["(no summary produced)"]}
 
@@ -330,8 +335,11 @@ def run(
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "write", **s})
 
         sections_md = [prompts.render_section(i + 1, sec) for i, sec in enumerate(sections)]
-        overview, s = write_overview(paras, sections_md, title=title, uploader=uploader, reference=reference,
-                                     **common)
+        # The overview sees only title + channel: descriptions often promote other videos, and the
+        # model treated that as content. Names are already fixed during condense.
+        overview, s = write_overview(paras, sections_md, title=title, uploader=uploader,
+                                     reference=prompts.reference_block(title=title, uploader=uploader,
+                                                                       description=None), **common)
         stats["overview"] = s
         _ledger(settings, {"folder": _rel(folder, settings), "stage": "overview", **s})
 

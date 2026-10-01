@@ -37,18 +37,29 @@ def load_prompt(name: str, *, prompts_dir: Path = PROMPTS) -> str:
 
 
 def section_count(duration_s: float | None) -> int:
-    """Target chapter count: 18 min → 3, 1 h → 4, 1.5 h → 5, 2 h → 6, 2.5 h → 7 (max 8)."""
+    """Target chapter count: <6 min → 1, <15 min → 2, then 18 min → 3, 1 h → 4, 2 h → 6, 2.5 h → 7 (max 8)."""
     minutes = (duration_s or 0) / 60
+    if minutes < 6:
+        return 1
+    if minutes < 15:
+        return 2
     return max(3, min(8, round(2 + minutes / 30)))
+
+
+def min_chapters(target: int) -> int:
+    """Fewest chapters a plan may have (short videos can have just one)."""
+    return min(3, target)
 
 
 MAX_WORDS = 1250
 
 
 def target_words(duration_s: float | None) -> int:
-    """Brief length grows sublinearly: ~650 words for 1 h, ~1,150 for 2.5 h, never above 1,250."""
-    hours = (duration_s or 0) / 3600
-    return int(max(450, min(MAX_WORDS, 650 + 330 * (hours - 1))))
+    """Brief length grows sublinearly: ~150 for a clip, 450 at 15 min, ~650 for 1 h, ~1,150 for 2.5 h, max 1,250."""
+    minutes = (duration_s or 0) / 60
+    if minutes < 15:
+        return int(150 + 20 * minutes)
+    return int(max(450, min(MAX_WORDS, 650 + 330 * (minutes / 60 - 1))))
 
 
 def _source_line(title: str | None, uploader: str | None) -> str:
@@ -78,9 +89,11 @@ def chapters_user_prompt(*, title: str | None, condensed: str, duration_s: float
     )
 
 
-def bullet_count(start_s: float, end_s: float, key_points: int) -> int:
-    """Long or dense chapters get a 4th bullet so their later points aren't squeezed out."""
-    return 4 if (end_s - start_s) >= 12 * 60 or key_points >= 4 else 3
+def bullet_count(start_s: float, end_s: float, key_points: int, points: int | None = None) -> int:
+    """Long or dense chapters get a 4th bullet so their later points aren't squeezed out;
+    never more bullets than the chapter has points (so a short clip isn't padded with inventions)."""
+    n = 4 if (end_s - start_s) >= 12 * 60 or key_points >= 4 else 3
+    return max(1, min(n, points)) if points is not None else n
 
 
 def chapter_user_prompt(*, title: str, number: int, start: str, end: str, points: str,
@@ -183,7 +196,7 @@ def parse_outline(text: str, duration_s: float) -> list[tuple[int, str]]:
 
 def outline_problems(starts: list[tuple[int, str]], duration_s: float, target: int) -> list[str]:
     problems = []
-    if not (3 <= len(starts) <= max(4, target + 2)):
+    if not (min_chapters(target) <= len(starts) <= max(4, target + 2)):
         problems.append(f"{target} chapters (got {len(starts)})")
     bounds = [t for t, _ in starts] + [duration_s]
     longest = max((b - a for a, b in zip(bounds, bounds[1:])), default=0)
@@ -196,11 +209,13 @@ def merge_short_chapters(starts: list[tuple[int, str]], duration_s: float, targe
     """Fold chapters much shorter than average (cold-open teasers, brief asides) into a neighbour.
 
     A short first chapter merges forward and takes the next chapter's title; any other short
-    chapter merges into the one before it. Never goes below 3 chapters.
+    chapter merges into the one before it. Never goes below `min_chapters(target)`.
     """
-    min_s = max(180.0, 0.35 * duration_s / max(1, target))
+    min_s = 0.35 * duration_s / max(1, target)
+    if duration_s > 20 * 60:
+        min_s = max(180.0, min_s)
     starts = list(starts)
-    while len(starts) > 3:
+    while len(starts) > max(min_chapters(target), 1):
         bounds = [t for t, _ in starts] + [duration_s]
         lengths = [b - a for a, b in zip(bounds, bounds[1:])]
         i = min(range(len(starts)), key=lambda k: lengths[k])
@@ -212,7 +227,7 @@ def merge_short_chapters(starts: list[tuple[int, str]], duration_s: float, targe
     return starts
 
 
-def parse_chapter(text: str) -> dict | None:
+def parse_chapter(text: str, min_bullets: int = 2) -> dict | None:
     """chapter.md reply → {'intro', 'bullets'}. None when unusable (caller retries)."""
     intro: list[str] = []
     bullets: list[str] = []
@@ -225,7 +240,7 @@ def parse_chapter(text: str) -> dict | None:
         elif line and not bullets and intro:
             intro.append(line)  # intro wrapped onto a second line
     bullets = [b for b in bullets if b]
-    if len(bullets) < 2:
+    if len(bullets) < min_bullets:
         return None
     return {"intro": " ".join(intro).strip("*_ "), "bullets": bullets[:4]}
 
@@ -326,12 +341,12 @@ def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:
     for name, label in REQUIRED_H2.items():
         if not any(name in h for h in h2):
             missing.append(label)
-    if len(h3) < 3:
-        missing.append(f"3+ '### Chapter' sections (found {len(h3)})")
+    if not h3:
+        missing.append("at least one '### Chapter' section")
     elif len(h3) > MAX_SECTIONS:
         missing.append(f"at most {MAX_SECTIONS} chapters (found {len(h3)})")
     stamps = sum(1 for ln in lines if _BULLET.match(ln) and _LEAD_TS.match(_BULLET.sub("", ln)))
-    if h3 and stamps < 2 * len(h3):
+    if h3 and stamps < len(h3):
         missing.append(f"[HH:MM:SS] timestamps on chapter bullets (found {stamps})")
     return (not missing, missing)
 

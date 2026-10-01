@@ -1,70 +1,210 @@
 # VidBrief
 
-Paste a YouTube or X video URL and get a written executive brief: a high-level overview, context on who is talking, timestamped chapters, and key takeaways. Everything runs on your Mac with open-source models. No API keys, no cost per video.
+**Turn any YouTube or X video into a tight, timestamped executive brief, entirely on your Mac.** Open-source models, no API keys, no cost per video, nothing leaves your machine except the video download.
 
-```text
-URL → transcript (YouTube captions, or yt-dlp audio + MLX Whisper) → local LLM via mlx-lm → brief.md
-```
+![A VidBrief brief: high-level overview, context, and timestamped chapters](docs/screenshots/brief.png)
 
-> Work in progress. Model/RAM guidance and configuration docs are still being written.
+## Why
+
+I built [PodBrief](https://podbrief.io) to summarize podcasts and videos with commercial APIs (transcription, Gemini, text-to-speech). I loved using it, but every brief cost money and sent content to third parties. VidBrief does the same core job, a written brief worth reading instead of a 2-hour video, using only open-source tools that run locally on Apple Silicon.
+
+## Features
+
+- **YouTube and X links.** Paste one link or a whole list; they queue and run one at a time.
+- **Fast transcripts.** YouTube videos use the video's own captions (seconds, no download). X videos and captionless YouTube videos are transcribed locally with Whisper.
+- **Briefs that respect your time.** A high-level overview, context on who's talking, topic-based chapters with clickable timestamps, and key takeaways. Length grows slowly with the video: about 650 words for an hour, never more than 1,250.
+- **You decide what matters.** A plain-text priorities file tells the model what to keep (by default: actionable advice, news and numbers, predictions) and what to drop.
+- **Key points and full transcript** for every video, in tabs next to the brief.
+- **Easy cleanup.** Deleting a brief deletes its audio, transcript and outputs from disk.
+
+![Library with briefs and a queue of videos waiting their turn](docs/screenshots/library.png)
+
+## Requirements
+
+| | |
+|---|---|
+| Mac | Apple Silicon (M1 or later). **16 GB memory recommended.** |
+| Disk | About 8 GB for models, plus a little per video |
+| Software | macOS with [Homebrew](https://brew.sh), Python 3.10+, Node 18+ |
 
 ## Quick start
 
-Requires an Apple Silicon Mac (16 GB RAM recommended), Python 3.10+, Node 18+, `yt-dlp`, and `ffmpeg`.
-
 ```bash
-brew install yt-dlp ffmpeg node
-./scripts/setup.sh        # venv, Python + UI deps, model download (~7.5 GB first time)
-./scripts/dev.sh          # UI at http://127.0.0.1:5174
+brew install python yt-dlp ffmpeg node
+git clone https://github.com/victorkung/vidbrief.git
+cd vidbrief
+./scripts/setup.sh     # creates .venv, installs dependencies, downloads models (~7.5 GB, first time only)
+./scripts/dev.sh       # starts the app
 ```
 
-Or from the terminal:
+Open **http://127.0.0.1:5174**, paste a link, and press **Brief it**.
+
+`setup.sh` is safe to re-run. Set `SKIP_MODELS=1` to skip the model download (models are then fetched on first use).
+
+## Using it
+
+### In the app
+
+1. **Paste links.** One link opens its brief as it's made. Several links (one per line, or separated by spaces) queue on the library page. Cards show their place in line, and links already in your library are skipped.
+2. **Watch progress.** Each video goes through *captions or download and transcribe → condense → plan chapters → write chapters → summary*. Cancel works at any point.
+3. **Read.** The **Brief** tab has the summary; timestamps jump to that moment on YouTube. **Key points** lists every important point by chapter (★ marks the most important), and **Transcript** has the full text.
+4. **Redo or remove.** **Re-summarize** reruns the summary from the saved transcript, for example after editing your priorities. The trash icon deletes a brief and its files.
+
+The **Transcription** toggle (Turbo or Small) only matters for videos without captions. Turbo is more accurate with names and numbers; Small is faster.
+
+![Key points grouped by chapter, with the most important marked](docs/screenshots/key-points.png)
+
+### From the terminal
 
 ```bash
-.venv/bin/python -m vidbrief "https://www.youtube.com/watch?v=..."
+.venv/bin/python -m vidbrief "https://www.youtube.com/watch?v=LCEmiRjPEtQ"
+# prints the path to brief.md when done
 ```
+
+Options: `--model <hf-id-or-path>`, `--whisper turbo|small`, `--mode chaptered|single_pass`.
+
+Briefs are saved under `briefs/<date> <channel>/` as `brief.md`, plus `key_points.md`, `transcript.md` and the source transcript.
 
 ## How it works
 
-1. **Transcript.** YouTube videos use the video's own captions (creator-uploaded first, then YouTube's speech recognition), which takes seconds. X videos and YouTube videos without captions are downloaded with yt-dlp and transcribed locally with MLX Whisper.
-2. **Condense.** The transcript is split into ~30-minute windows; the model writes one timestamped line per key point. Timestamps are then matched back to the transcript in code, so they are always real.
-3. **Plan chapters.** One short call groups the key points into 3–6 chapters by topic (about one per 13 minutes).
-4. **Write chapters.** One call per chapter, seeing only that chapter's key points: a two-sentence intro and 3–4 `[HH:MM:SS] **Label**: point` bullets.
-5. **Overview, context, takeaways.** One call over the finished chapters.
+```text
+URL ─► transcript ─► condense ─► plan chapters ─► write chapters ─► overview & takeaways ─► brief.md
+       YouTube captions,   one line per        3–8 chapters      3–4 bullets each,     from the finished
+       or yt-dlp audio +   point, ★ on the     by topic          from that chapter's   chapters
+       MLX Whisper         most important                        key points only
+```
 
-Each step is small on purpose: a 9B model running locally follows short, focused instructions far better than one long prompt. The code, not the model, assembles the final structure.
+A 9-billion-parameter model running on a laptop follows short, focused instructions far better than one long prompt. So the work is split into small steps, and the code (not the model) assembles the final structure:
 
-Default model: [`mlx-community/Qwen3.5-9B-MLX-4bit`](https://huggingface.co/mlx-community/Qwen3.5-9B-MLX-4bit) (~6 GB on disk, ~6.7 GB peak memory). A one-hour video takes about 5–9 minutes to summarize on an M5 with 16 GB.
+1. **Condense:** each ~30-minute stretch of transcript becomes one line per key point, with ★ on actionable advice, news and predictions. Timestamps are then matched back to the transcript in code, so they are always real.
+2. **Plan chapters:** one short call groups the points into chapters by topic. Code checks order and balance, and folds very short chapters (such as a teaser cold open) into a neighbour.
+3. **Write chapters:** each chapter is written from only its own key points, ★ points first.
+4. **Overview, context, takeaways:** one call over the finished chapters. The video's title, channel and description are passed along so the model can fix misspelled names from the captions.
 
-## Configuration
+If the brief still runs over its word budget, code drops the least important bullets.
 
-Copy `.env.example` to `.env`. The main settings:
+Models run one at a time across every VidBrief process on the Mac (a file lock), and each model is unloaded as soon as its step ends, so Whisper and the LLM never share memory.
+
+## Make it yours
+
+### What "important" means
+
+Edit [`prompts/priorities.md`](prompts/priorities.md). It's plain English and is included in every summarizing step. The default is written for staying up to date on tech and markets: it keeps actionable advice, news and numbers, predictions, and frameworks, and drops anecdotes, banter, ads and self-promotion.
+
+To keep your changes out of git, copy it to `prompts/private/priorities.md` and edit that. Any prompt in `prompts/` can be overridden the same way: `condense.md`, `chapters.md`, `chapter.md`, `overview.md`, `single_pass.md`.
+
+### Settings
+
+Copy `.env.example` to `.env` and uncomment what you need:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `LLM_MODEL` | `mlx-community/Qwen3.5-9B-MLX-4bit` | Any mlx-lm model (Hugging Face id or local path) |
-| `SUMMARY_MODE` | `chaptered` | `chaptered` (steps above) or `single_pass` (one call) |
-| `TRANSCRIPT_SOURCE` | `auto` | `auto` (captions, else Whisper), `whisper`, or `captions` |
+| `LLM_MODEL` | `mlx-community/Qwen3.5-9B-MLX-4bit` | Summarizer. Any [mlx-lm](https://github.com/ml-explore/mlx-lm) model: a Hugging Face id or a local path |
 | `WHISPER_MODEL` | `turbo` | `turbo` (most accurate) or `small` (faster). Only used when a video has no captions |
-| `HF_HOME` | `~/.cache/huggingface` | Where models are stored (an external drive works) |
+| `TRANSCRIPT_SOURCE` | `auto` | `auto` (captions, else Whisper), `whisper` (always), or `captions` (never Whisper) |
+| `SUMMARY_MODE` | `chaptered` | `chaptered` (the steps above) or `single_pass` (one call; fine for short videos) |
+| `HF_HOME` | `~/.cache/huggingface` | Where models are stored. An external drive works |
+| `BRIEFS_DIR`, `DATA_DIR` | `./briefs`, `./data` | Where briefs and the library index live |
+| `YTDLP_COOKIES_FROM_BROWSER` | (none) | `chrome`, `safari`, and so on, if YouTube blocks downloads |
 
-### Editing prompts
+### Choosing a model
 
-Prompts are plain markdown in `prompts/`: `condense.md`, `chapters.md`, `chapter.md`, `overview.md`, `single_pass.md`. To customize one without touching the defaults, copy it into `prompts/private/` with the same name and edit it there (that folder is gitignored).
+| Mac memory | Suggested `LLM_MODEL` | Status |
+|---|---|---|
+| 16 GB | `mlx-community/Qwen3.5-9B-MLX-4bit` (default, ~6 GB) | **Tested.** Peak memory about 6.7 GB |
+| 8 GB | `mlx-community/gemma-4-e4b-it-4bit` (~5 GB) | Untested. Close other apps |
+| 32 GB+ | A larger 4-bit model, such as `mlx-community/Qwen3.8-27B-4bit` (~15 GB) | Untested. Likely better quality, slower |
 
-### Comparing models
+Compare models on videos you've already transcribed:
 
 ```bash
 .venv/bin/python scripts/eval.py --models mlx-community/Qwen3.5-9B-MLX-4bit mlx-community/gemma-4-e4b-it-4bit
 ```
 
-Runs the summarize step for each model on every video you've already transcribed and prints time, memory, length, chapter count, and timeline coverage.
+## Performance
+
+Measured on an M5 MacBook with 16 GB and the default settings. Times are for the summarizing steps; fetching YouTube captions adds about 5 seconds.
+
+| Video | Length | Summarize | Brief length (target) |
+|---|---|---|---|
+| Huberman Lab clip | 10 min | 1.3 min | 440 words (450) |
+| Matt Pocock talk | 18 min | 1.6 min | 470 words (450) |
+| The DeFi Report | 37 min | 3.3 min | 454 words (525) |
+| When Shift Happens interview | 67 min | 5 min | 557 words (691) |
+| Delphi Hivemind (X) | 88 min | 4.8 min | 793 words (805) |
+
+Whisper (for videos without captions) adds about 2.5 minutes per hour of audio with `small`; `turbo` is slower but more accurate.
+
+## Privacy
+
+Everything runs on your Mac. The network is used only by yt-dlp (to fetch the video, its captions and its title, channel, date and description) and for the one-time model downloads from Hugging Face. There are no accounts, telemetry or API keys.
 
 ## Troubleshooting
 
-- **YouTube HTTP 403:** set `YTDLP_COOKIES_FROM_BROWSER=chrome` in `.env` and run `brew upgrade yt-dlp`.
-- **Out of memory:** use a smaller model (`LLM_MODEL=mlx-community/gemma-4-e4b-it-4bit`) and close other heavy apps.
+| Problem | Fix |
+|---|---|
+| YouTube download fails with HTTP 403 | `brew upgrade yt-dlp`, then set `YTDLP_COOKIES_FROM_BROWSER=chrome` in `.env` |
+| A job says "Waiting for another VidBrief job to finish" | Another VidBrief process (CLI, eval, second server) is using the model; it continues automatically |
+| Out of memory or very slow | Close heavy apps, or use a smaller `LLM_MODEL` (see the table above) |
+| Names misspelled in a brief | Captions sometimes mishear names; the model fixes them only when they appear in the video's title or description |
+| "port already in use" | Something else is on 5174 or 8788. Use other ports: `VIDBRIEF_UI_PORT=5175 VIDBRIEF_API_PORT=8789 ./scripts/dev.sh` |
+| "missing .venv" or "node_modules" | Run `./scripts/setup.sh` |
 
-## License
+## For AI agents
 
-MIT
+If you are a coding agent setting this up or changing it, use these exact steps. **Read [`AGENTS.md`](AGENTS.md) before making changes.**
+
+```bash
+# 1. Prerequisites (macOS, Apple Silicon). Verify:
+uname -m                                   # must print arm64
+command -v python3 yt-dlp ffmpeg node      # install missing ones: brew install python yt-dlp ffmpeg node
+
+# 2. Install (non-interactive, idempotent). SKIP_MODELS=1 skips the ~7.5 GB model download.
+./scripts/setup.sh
+
+# 3. Verify
+.venv/bin/python -m pytest -q             # all tests must pass; no network or models needed
+.venv/bin/python -m vidbrief "https://www.youtube.com/watch?v=jNQXAC9IVRw"   # 19-second clip, ~1 min; prints brief.md path
+
+# 4. Run the app (API :8788, UI :5174). Blocks; run it in the background if needed.
+./scripts/dev.sh
+curl -s http://127.0.0.1:8788/api/health   # {"ok": true, ...}
+```
+
+**Where things live:**
+
+| Change | Edit |
+|---|---|
+| What a brief keeps or drops | `prompts/priorities.md` |
+| Wording or format of a step | `prompts/condense.md`, `chapters.md`, `chapter.md`, `overview.md` |
+| Length targets and chapter counts | `vidbrief/prompts.py` (`target_words`, `section_count`, `bullet_count`) |
+| Pipeline stages and resume logic | `vidbrief/pipeline.py` |
+| Summarizing steps | `vidbrief/summarize.py` |
+| Downloads, captions, Whisper | `vidbrief/media.py`, `scripts/transcribe.py` |
+| Queue and API endpoints | `vidbrief/api.py` |
+| UI | `app/frontend/src/App.jsx`, `styles.css` |
+
+**Never commit** `.env`, `briefs/`, `data/`, `prompts/private/*` (except its README), audio or transcripts.
+
+**HTTP API** (`127.0.0.1:8788`): `POST /api/ingest {url}`, `POST /api/ingest/batch {urls: [...]}`, `GET /api/briefs`, `GET /api/briefs/{id}` (includes `brief_md`, `condensed_md`, `transcript`), `POST /api/briefs/{id}/resummarize {mode}`, `POST /api/briefs/{id}/cancel`, `DELETE /api/briefs/{id}?files=true`.
+
+## Development
+
+```bash
+.venv/bin/python -m pytest -q          # unit tests: prompts, parsing, queue, delete safety, model lock
+.venv/bin/python scripts/eval.py --models <model> [--videos "<folder>"] [--reuse-condensed]
+```
+
+```text
+vidbrief/          Python package: pipeline, media, summarize, prompts, api, cli
+scripts/           setup.sh, dev.sh, serve.sh, llm_run.py (mlx-lm runner), transcribe.py (Whisper), eval.py
+prompts/           the prompts and priorities (override in prompts/private/)
+app/frontend/      React UI (Vite)
+docs/reference/    PodBrief example briefs, the format and voice VidBrief follows
+docs/screenshots/  images used in this README
+tests/             pytest suite
+```
+
+## License and credits
+
+MIT. Built on [MLX](https://github.com/ml-explore/mlx), [mlx-lm](https://github.com/ml-explore/mlx-lm), [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper), [yt-dlp](https://github.com/yt-dlp/yt-dlp), [OpenAI Whisper](https://github.com/openai/whisper) weights, and [Qwen](https://huggingface.co/Qwen) models. The brief format comes from [PodBrief](https://podbrief.io).

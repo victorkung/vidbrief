@@ -12,10 +12,12 @@ Two sentences: who is speaking (host and guests by name), what gives them author
 
 ## Key Takeaways
 - **<Concept Name>**: <one sentence, 22 words at most, with the specific claim, number, or recommendation>
-(exactly 4 bullets, the most actionable or important ideas across all chapters, actionable advice first)
+(up to 4 bullets, the most actionable or important ideas across all chapters, actionable advice first; fewer for a short clip)
 
 Rules:
 - Draw from every chapter, including the last ones.
 - Takeaways connect ideas across chapters; do not copy a chapter bullet word for word.
 - Use only facts from the material provided. Spell names as in the REFERENCE when the transcript disagrees.
+- Describe what the video says. Never comment on what it lacks, whether it is useful, or how it relates to the reader's priorities.
+- For a short clip, keep every section brief; do not pad.
 - Direct, confident, active voice. No filler.

@@ -46,7 +46,8 @@ def meta_line(brief: dict[str, Any]) -> str:
     if brief.get("published"):
         bits.append("Published " + date.fromisoformat(brief["published"]).strftime("%b %-d, %Y"))
     if brief.get("duration"):
-        bits.append(f"{round(float(brief['duration']) / 60)} min")
+        secs = float(brief["duration"])
+        bits.append(f"{round(secs)} sec" if secs < 60 else f"{round(secs / 60)} min")
     return "*" + " · ".join(str(b) for b in bits if b) + "*"
 
 

@@ -113,6 +113,11 @@ export default function App() {
   const running = Boolean(detail && ACTIVE.has(detail.status));
   const listRunning = briefs.some((b) => ACTIVE.has(b.status));
   const queueLength = briefs.filter((b) => b.queue_position).length;
+  // Running first, then the queue in line order, then everything else newest first (API order).
+  const rank = (b) => (b.status === "running" ? 0 : b.queue_position ? 1 : 2);
+  const orderedBriefs = [...briefs].sort(
+    (a, b) => rank(a) - rank(b) || (a.queue_position || 0) - (b.queue_position || 0),
+  );
   const linkCount = extractLinks(url).length;
 
   useEffect(() => {
@@ -282,7 +287,7 @@ export default function App() {
               <p className="empty">No briefs yet.</p>
             ) : (
               <ul>
-                {briefs.map((b) => (
+                {orderedBriefs.map((b) => (
                   <li key={b.id} className="card-row">
                     <button type="button" className="card" onClick={() => go(`#/b/${b.id}`)}>
                       <div className="card-title">{b.title && b.title !== "Resolving…" ? b.title : b.url}</div>

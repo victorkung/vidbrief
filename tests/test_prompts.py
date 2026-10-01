@@ -167,3 +167,24 @@ def test_bullet_count_grows_for_long_or_dense_chapters():
     assert prompts.bullet_count(0, 8 * 60, 2) == 3
     assert prompts.bullet_count(0, 20 * 60, 1) == 4
     assert prompts.bullet_count(0, 5 * 60, 4) == 4
+
+
+def test_short_videos_get_fewer_chapters_and_words():
+    assert prompts.section_count(19) == 1
+    assert prompts.section_count(10 * 60) == 2
+    assert prompts.section_count(18 * 60) == 3
+    assert prompts.target_words(19) == 156
+    assert prompts.target_words(15 * 60) == 450
+
+
+def test_bullets_never_exceed_points():
+    assert prompts.bullet_count(0, 19, 0, points=1) == 1
+    assert prompts.bullet_count(0, 20 * 60, 5, points=2) == 2
+
+
+def test_single_chapter_brief_is_valid():
+    brief = prompts.assemble_brief(
+        {"overview": "S.", "context": "Who.", "key takeaway": "- **K**: v"},
+        [prompts.render_section(1, {"title": "Clip", "intro": "i", "bullets": ["[00:00:01] **A**: a"]})])
+    ok, missing = prompts.validate_summary_structure(brief)
+    assert ok, missing

@@ -62,6 +62,7 @@ export function stageLabel(stage) {
     {
       queued: "Queued",
       resolving: "Resolving",
+      captions: "Fetching captions",
       downloading: "Downloading",
       transcribing: "Transcribing",
       condensing: "Condensing",

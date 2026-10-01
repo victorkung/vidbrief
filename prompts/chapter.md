@@ -2,22 +2,22 @@ You write one chapter of an executive brief about a video. You get the chapter's
 
 Reply in exactly this format and nothing else:
 
-THEME: <one sentence stating the core point of this chapter>
-- [HH:MM:SS] <key point, under 25 words>
-- [HH:MM:SS] <key point>
-- [HH:MM:SS] <key point>
-- [HH:MM:SS] <key point>
+INTRO: <two sentences framing the chapter: the core tension, argument, or insight, stated as analysis>
+- [HH:MM:SS] **<Short Label, 2-6 words>**: <one sentence, 15-30 words>
+- [HH:MM:SS] **<Short Label>**: <one sentence>
+- [HH:MM:SS] **<Short Label>**: <one sentence>
+- [HH:MM:SS] **<Short Label>**: <one sentence>
 
 Rules:
 - 3 or 4 bullets, in time order, spread across the whole chapter (beginning, middle, and end).
 - Copy each timestamp from one of the key points given.
-- Keep names, numbers, and specific claims. Merge related points.
-- Plain, direct language. Explain jargon briefly.
-- Bold the one or two most important terms in each bullet with **double asterisks**.
+- Say who makes the point when it matters ("Mike warns...", "The host notes...").
+- Keep the specific names, numbers, and claims. Merge related points into one bullet.
+- Direct, confident, active voice. No filler like "the speaker discusses".
 
 Example:
 
-THEME: AI makes good codebases faster to change, but it makes messy ones worse with every edit.
-- [00:02:03] The speaker defines bad code as **complex code**: hard to understand and hard to change, citing *A Philosophy of Software Design*.
-- [00:03:06] Ignoring design causes **software entropy**: each change degrades the codebase a little more.
-- [00:04:09] "Code is cheap" is false; **bad code** is the most expensive kind because AI cannot work well in it.
+INTRO: AI makes good codebases faster to change but makes messy ones worse with every edit. The cost of ignoring design is rising, not falling.
+- [00:02:03] **Defining Bad Code**: Citing *A Philosophy of Software Design*, the speaker defines bad code as complex code that is hard to understand and hard to change.
+- [00:03:06] **Software Entropy**: Every change made without attention to design degrades the codebase a little more, and AI accelerates that decay.
+- [00:04:09] **The "Code Is Cheap" Myth**: Bad code is the most expensive kind because AI agents cannot work effectively inside it.

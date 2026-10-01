@@ -2,25 +2,26 @@ You write an executive brief of a video from its full transcript. Each paragraph
 
 Reply with exactly this markdown and nothing else:
 
-## Executive Summary
-3-4 sentences: the central argument and most important insights. Bold the single most important insight.
+## High-Level Overview
+Three sentences, no bold: the central thesis, the key argument behind it, and the ultimate takeaway.
 
-## Speaker & Guests
-2-4 bullets: who is speaking, their authority, and why this conversation is happening now.
+## Context
+One paragraph of 2-3 sentences: who is speaking, their authority, and why this conversation matters now.
 
-## Thematic Breakdown
-The chapters, in time order, each in this form:
+### Chapter 1: <Title naming the topic>
+<Two sentences framing the chapter's core tension or insight.>
 
-### Section 1: <Title>
-*<One sentence stating the chapter's core point.>*
-- [HH:MM:SS] <key point, under 25 words>
-- [HH:MM:SS] <key point>
-- [HH:MM:SS] <key point>
+- [HH:MM:SS] **<Short Label>**: <one sentence, 15-30 words>
+- [HH:MM:SS] **<Short Label>**: <one sentence>
+- [HH:MM:SS] **<Short Label>**: <one sentence>
+
+(more chapters in the same form, in time order)
 
 ## Key Takeaways
-3-4 bullets, each in the form **Concept Name**: one or two sentences on the idea and why it matters.
+- **<Concept Name>**: <one sentence with the specific claim or number>
+(exactly 4 bullets)
 
 Rules:
 - Copy timestamps from the transcript's paragraph labels.
 - Cover the whole video evenly, including the ending.
-- Keep names, numbers, and specific claims. Plain, direct language. 900-1,100 words.
+- Keep names, numbers, and specific claims. Direct, active voice. 800-1,100 words.

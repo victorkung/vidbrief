@@ -2,7 +2,7 @@
 
 chaptered flow (see summarize.py): condense.md per transcript window → chapters.md plans
 topic-based chapters → chapter.md writes each chapter from its condensed points →
-overview.md writes summary, speakers and takeaways. Code assembles the brief.
+overview.md writes the overview, context and takeaways. Code assembles the brief.
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ def load_prompt(name: str, *, prompts_dir: Path = PROMPTS) -> str:
 
 
 def section_count(duration_s: float | None) -> int:
-    """Target chapter count: about one per 15 minutes, 3–6 total."""
+    """Target chapter count, matching PodBrief: 18 min → 3, 37 → 4, 65 → 5, 88+ → 6."""
     minutes = (duration_s or 0) / 60
-    return max(3, min(6, round(minutes / 15)))
+    return max(3, min(6, round(2.6 + minutes / 30)))
 
 
 def _source_line(title: str | None, uploader: str | None) -> str:
@@ -58,7 +58,7 @@ def chapter_user_prompt(*, title: str, number: int, start: str, end: str, points
                         video_title: str | None = None) -> str:
     return (
         f"{_source_line(video_title, None)}CHAPTER {number}: {title} ({start}–{end})\n\nKEY POINTS:\n{points}\n\n"
-        "---\nWrite THEME and 3-4 timestamped bullets for this chapter now."
+        "---\nWrite INTRO and 3-4 timestamped bullets for this chapter now."
     )
 
 
@@ -66,7 +66,7 @@ def overview_user_prompt(*, title: str | None, uploader: str | None, opening: st
     return (
         f"{_source_line(title, uploader)}OPENING MINUTES (for who is speaking and why):\n{opening}\n\n"
         f"CHAPTERS:\n{chapters}\n\n"
-        "---\nWrite ## Executive Summary, ## Speaker & Guests, and ## Key Takeaways now."
+        "---\nWrite ## High-Level Overview, ## Context, and ## Key Takeaways now."
     )
 
 
@@ -142,35 +142,37 @@ def outline_problems(starts: list[tuple[int, str]], duration_s: float, target: i
 
 
 def parse_chapter(text: str) -> dict | None:
-    """chapter.md reply → {'theme', 'bullets'}. None when unusable (caller retries)."""
-    theme = ""
+    """chapter.md reply → {'intro', 'bullets'}. None when unusable (caller retries)."""
+    intro: list[str] = []
     bullets: list[str] = []
     for raw in (text or "").splitlines():
-        line = re.sub(r"^\**\s*(THEME)\s*:\s*\**", r"\1:", raw.strip(), flags=re.I)
-        if line.upper().startswith("THEME:"):
-            theme = line[6:].strip().strip("*_").strip()
+        line = re.sub(r"^\**\s*(INTRO|THEME)\s*:\s*\**", "INTRO:", raw.strip(), flags=re.I)
+        if line.startswith("INTRO:"):
+            intro.append(line[6:].strip())
         elif _BULLET.match(line):
             bullets.append(normalize_bullet(line))
+        elif line and not bullets and intro:
+            intro.append(line)  # intro wrapped onto a second line
     bullets = [b for b in bullets if b]
     if len(bullets) < 2:
         return None
-    return {"theme": theme, "bullets": bullets[:4]}
+    return {"intro": " ".join(intro).strip("*_ "), "bullets": bullets[:4]}
 
 
 def render_section(i: int, sec: dict) -> str:
-    lines = [f"### Section {i}: {sec['title']}"]
-    if sec.get("theme"):
-        lines.append(f"*{sec['theme']}*")
+    lines = [f"### Chapter {i}: {sec['title']}"]
+    if sec.get("intro"):
+        lines.append(sec["intro"])
+    lines.append("")
     lines += [f"- {b}" for b in sec["bullets"]]
     return "\n".join(lines)
 
 
-OVERVIEW_KEYS = {"executive summary": "Executive Summary", "speaker": "Speaker & Guests",
-                 "key takeaway": "Key Takeaways"}
+OVERVIEW_KEYS = {"overview": "High-Level Overview", "context": "Context", "key takeaway": "Key Takeaways"}
 
 
 def split_overview(text: str) -> dict[str, str]:
-    """Overview reply → {'executive summary': body, 'speaker': body, 'key takeaway': body}."""
+    """Overview reply → {'overview': body, 'context': body, 'key takeaway': body}."""
     out: dict[str, str] = {}
     key = None
     buf: list[str] = []
@@ -189,8 +191,9 @@ def split_overview(text: str) -> dict[str, str]:
 
 
 def assemble_brief(overview: dict[str, str], sections_md: list[str]) -> str:
-    parts = [f"## {OVERVIEW_KEYS[k]}\n{overview[k]}" for k in ("executive summary", "speaker") if overview.get(k)]
-    parts.append("## Thematic Breakdown\n\n" + "\n\n".join(sections_md))
+    """High-Level Overview, Context, chapters, Key Takeaways (PodBrief's layout)."""
+    parts = [f"## {OVERVIEW_KEYS[k]}\n{overview[k]}" for k in ("overview", "context") if overview.get(k)]
+    parts += sections_md
     if overview.get("key takeaway"):
         parts.append(f"## Key Takeaways\n{overview['key takeaway']}")
     return "\n\n".join(parts).strip() + "\n"
@@ -198,7 +201,7 @@ def assemble_brief(overview: dict[str, str], sections_md: list[str]) -> str:
 
 # ── Validation ─────────────────────────────────────────────────────────────
 
-REQUIRED_H2 = ("executive summary", "key takeaways")
+REQUIRED_H2 = {"overview": "High-Level Overview", "key takeaways": "Key Takeaways"}
 MAX_SECTIONS = 7
 
 
@@ -208,11 +211,11 @@ def validate_summary_structure(summary: str) -> tuple[bool, list[str]]:
     h2 = [ln.lower() for ln in lines if ln.startswith("## ")]
     h3 = [ln for ln in lines if ln.startswith("### ")]
     missing: list[str] = []
-    for name in REQUIRED_H2:
+    for name, label in REQUIRED_H2.items():
         if not any(name in h for h in h2):
-            missing.append(name.title())
+            missing.append(label)
     if len(h3) < 3:
-        missing.append(f"3+ '### Section' chapters (found {len(h3)})")
+        missing.append(f"3+ '### Chapter' sections (found {len(h3)})")
     elif len(h3) > MAX_SECTIONS:
         missing.append(f"at most {MAX_SECTIONS} chapters (found {len(h3)})")
     stamps = sum(1 for ln in lines if _BULLET.match(ln) and _LEAD_TS.match(_BULLET.sub("", ln)))

@@ -2,16 +2,17 @@ You write the opening and closing of an executive brief about a video. You get t
 
 Reply with exactly these three markdown sections and nothing else:
 
-## Executive Summary
-3-4 sentences: the video's central argument and its most important insights. Bold the single most important insight.
+## High-Level Overview
+Three sentences, no bold: the video's central thesis, the key argument or evidence behind it, and the ultimate takeaway.
 
-## Speaker & Guests
-2-4 bullets. Who is speaking, what gives them authority on this topic, and why this conversation is happening now. Use only what the material says. If a name is not given, describe the role (for example "The host").
+## Context
+One paragraph of 2-3 sentences: who is speaking (host and guests by name if given), what gives them authority on this topic, and why this conversation matters now. No bullets.
 
 ## Key Takeaways
-3-4 bullets, each in the form **Concept Name**: one or two sentences on the idea and why it matters.
+- **<Concept Name>**: <one sentence with the specific claim, number, or recommendation>
+(exactly 4 bullets in this form)
 
 Rules:
 - Draw from every chapter, including the last ones, not just the first.
-- Use only facts from the material provided.
-- Plain, direct, active voice. No filler.
+- Use only facts from the material provided. If a name is not given, describe the role ("The host").
+- Direct, confident, active voice. No filler.

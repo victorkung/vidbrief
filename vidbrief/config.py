@@ -16,6 +16,14 @@ MODES = ("chaptered", "single_pass")
 MODE_ALIASES = {"two_pass": "chaptered", "three_pass": "chaptered"}
 
 
+TRANSCRIPT_SOURCES = ("auto", "whisper", "captions")  # auto: YouTube captions, else Whisper
+
+
+def _choice(name: str, options: tuple[str, ...]) -> str:
+    value = (os.environ.get(name) or options[0]).strip().lower()
+    return value if value in options else options[0]
+
+
 def _int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name) or default)
@@ -34,6 +42,7 @@ def _float(name: str, default: float) -> float:
 class Settings:
     llm_model: str
     whisper_model: str
+    transcript_source: str
     mode: str
     chunk_tokens: int
     condense_max_tokens: int
@@ -56,6 +65,7 @@ def load_settings() -> Settings:
     return Settings(
         llm_model=(os.environ.get("LLM_MODEL") or DEFAULT_LLM_MODEL).strip(),
         whisper_model=(os.environ.get("WHISPER_MODEL") or DEFAULT_WHISPER).strip(),
+        transcript_source=_choice("TRANSCRIPT_SOURCE", TRANSCRIPT_SOURCES),
         mode=mode if mode in MODES else "chaptered",
         chunk_tokens=_int("CHUNK_TOKENS", 7000),
         condense_max_tokens=_int("CONDENSE_MAX_TOKENS", 2000),

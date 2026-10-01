@@ -129,6 +129,61 @@ def download_audio(
     return dest
 
 
+_CAPTION_NOISE = re.compile(r"\[(?:music|applause|laughter|inaudible)\]", re.I)
+
+
+def _parse_json3(path: Path) -> list[dict[str, Any]]:
+    """YouTube json3 captions → [{'start', 'end', 'text'}]. Keeps '>>' speaker-change marks."""
+    events = json.loads(path.read_text(encoding="utf-8")).get("events") or []
+    segments = []
+    for ev in events:
+        if ev.get("aAppend") or not ev.get("segs"):
+            continue
+        text = _CAPTION_NOISE.sub("", "".join(s.get("utf8", "") for s in ev["segs"]))
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            continue
+        start = ev.get("tStartMs", 0) / 1000
+        segments.append({"start": round(start, 3), "end": round(start + ev.get("dDurationMs", 0) / 1000, 3), "text": text})
+    return segments
+
+
+def fetch_youtube_captions(url: str, dest_json: Path) -> str | None:
+    """Write YouTube's English captions as a transcript JSON (same shape as Whisper's).
+
+    Prefers captions uploaded by the creator, then YouTube's own speech recognition.
+    Returns the source label, or None when the video has no usable English captions.
+    """
+    url = canonicalize_media_url(url)
+    if not _is_youtube(url):
+        return None
+    folder = dest_json.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    attempts = (
+        ("youtube-captions", ["--write-subs", "--sub-langs", "en,en-US,en-GB"]),
+        ("youtube-auto-captions", ["--write-auto-subs", "--sub-langs", "en-orig,en"]),
+    )
+    for label, flags in attempts:
+        for old in folder.glob(".captions.*.json3"):
+            old.unlink()
+        cmd = _ytdlp_base(url) + ["--skip-download", *flags, "--sub-format", "json3",
+                                  "-o", str(folder / ".captions.%(ext)s"), url]
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        files = sorted(folder.glob(".captions.*.json3"), key=lambda p: ("orig" not in p.name, p.name))
+        segments = _parse_json3(files[0]) if files else []
+        for f in files:
+            f.unlink()
+        if len(segments) >= 3:
+            payload = {"source": label, "text": " ".join(s["text"] for s in segments), "words": [],
+                       "segments": segments, "language": "en"}
+            dest_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            return label
+    return None
+
+
 def transcribe(
     audio: Path,
     *,

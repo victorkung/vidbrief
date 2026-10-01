@@ -5,9 +5,9 @@ chaptered (default), four short steps so a small local model never has to juggle
                  (windows run independently, so the whole video is always covered).
   2. chapters  — one call groups the condensed points into 3–6 topic-based chapters
                  ("[HH:MM:SS] Title" starts). Code checks order, count and balance.
-  3. chapter   — one call per chapter writes its theme + 3–4 timestamped bullets from only
+  3. chapter   — one call per chapter writes its intro + 3–4 timestamped bullets from only
                  the condensed points inside that chapter's time range.
-  4. overview  — one call writes Executive Summary, Speaker & Guests, Key Takeaways from
+  4. overview  — one call writes High-Level Overview, Context and Key Takeaways from
                  the finished chapters plus the opening minutes.
   Code assembles the brief in PodBrief's order.
 
@@ -169,7 +169,7 @@ def write_chapters(
     parsed = [prompts.parse_chapter(r.content) for r in results]
     failed = [i for i, p in enumerate(parsed) if p is None]
     if failed:
-        retry_sys = prompts.quality_retry_system(system, ["THEME line and 3-4 timestamped bullets"])
+        retry_sys = prompts.quality_retry_system(system, ["INTRO line and 3-4 timestamped bullets"])
         retries, t2 = llm.run_jobs([job(i, retry_sys, settings.chapter_temperature + 0.2) for i in failed],
                                    model=settings.llm_model, on_proc=on_proc,
                                    on_progress=_progress(on_progress, "writing", "retrying chapter"))
@@ -177,7 +177,7 @@ def write_chapters(
         timings.append(t2)
         for i, r in zip(failed, retries):
             parsed[i] = prompts.parse_chapter(r.content) or {
-                "theme": "", "bullets": [prompts.normalize_bullet(ln) for ln in results[i].content.splitlines()
+                "intro": "", "bullets": [prompts.normalize_bullet(ln) for ln in results[i].content.splitlines()
                                          if ln.strip()][:4] or ["(no summary produced)"]}
 
     sections_md = [prompts.render_section(i + 1, {"title": starts[i][1], **sec}) for i, sec in enumerate(parsed)]

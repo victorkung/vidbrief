@@ -1,17 +1,16 @@
 from vidbrief import prompts
 
-COMPLETE = """## Executive Summary
+COMPLETE = """## High-Level Overview
 Hello.
 
-## Speaker & Guests
-- A
+## Context
+Who.
 
-## Thematic Breakdown
-### Section 1: One
+### Chapter 1: One
 - [00:00:10] a
-### Section 2: Two
+### Chapter 2: Two
 - [00:10:00] b
-### Section 3: Three
+### Chapter 3: Three
 - [00:20:00] c
 - [00:25:00] d
 - [00:28:00] e
@@ -30,7 +29,7 @@ def test_complete_structure():
 def test_incomplete():
     ok, missing = prompts.validate_summary_structure("just a paragraph")
     assert not ok
-    assert "Executive Summary" in missing
+    assert "High-Level Overview" in missing
 
 
 def test_default_prompts_exist():
@@ -57,16 +56,17 @@ def test_missing_timestamps_flagged():
 
 
 def test_too_many_sections_flagged():
-    body = "\n".join(f"### Section {i}: T\n- [00:0{i % 10}:00] a\n- [00:0{i % 10}:30] b" for i in range(1, 15))
-    text = f"## Executive Summary\nx\n## Thematic Breakdown\n{body}\n## Key Takeaways\n- y\n"
+    body = "\n".join(f"### Chapter {i}: T\n- [00:0{i % 10}:00] a\n- [00:0{i % 10}:30] b" for i in range(1, 15))
+    text = f"## High-Level Overview\nx\n{body}\n## Key Takeaways\n- y\n"
     ok, missing = prompts.validate_summary_structure(text)
     assert not ok
     assert any("at most" in m for m in missing)
 
 
-def test_section_count_scales_with_length():
-    assert prompts.section_count(10 * 60) == 3
-    assert prompts.section_count(60 * 60) == 4
+def test_section_count_matches_podbrief():
+    assert prompts.section_count(18 * 60) == 3
+    assert prompts.section_count(37 * 60) == 4
+    assert prompts.section_count(65 * 60) == 5
     assert prompts.section_count(3 * 3600) == 6
 
 
@@ -87,18 +87,18 @@ def test_outline_problems_flags_imbalance_and_count():
 
 
 def test_parse_chapter_normalizes_bullets():
-    sec = prompts.parse_chapter("**THEME:** Core idea.\n* **00:04:09** first\n- [00:05:10] second\n")
-    assert sec == {"theme": "Core idea.", "bullets": ["[00:04:09] first", "[00:05:10] second"]}
-    assert prompts.parse_chapter("THEME: x\n- only one") is None
+    sec = prompts.parse_chapter("**INTRO:** Core idea.\nSecond line.\n* **00:04:09** **Label**: first\n- [00:05:10] second\n")
+    assert sec == {"intro": "Core idea. Second line.", "bullets": ["[00:04:09] **Label**: first", "[00:05:10] second"]}
+    assert prompts.parse_chapter("INTRO: x\n- only one") is None
 
 
 def test_assembled_brief_validates():
     overview = prompts.split_overview(
-        "## Executive Summary\nS.\n## Speaker & Guests\n- A\n## Key Takeaways\n- **K**: v")
-    secs = [prompts.render_section(i, {"title": f"T{i}", "theme": "t", "bullets": [f"[00:0{i}:00] a", f"[00:0{i}:30] b"]})
+        "## High-Level Overview\nS.\n## Context\nWho.\n## Key Takeaways\n- **K**: v")
+    secs = [prompts.render_section(i, {"title": f"T{i}", "intro": "t", "bullets": [f"[00:0{i}:00] a", f"[00:0{i}:30] b"]})
             for i in range(1, 4)]
     brief = prompts.assemble_brief(overview, secs)
     ok, missing = prompts.validate_summary_structure(brief)
     assert ok, missing
-    assert brief.index("Speaker & Guests") < brief.index("Thematic Breakdown") < brief.index("Key Takeaways")
+    assert brief.index("## Context") < brief.index("### Chapter 1") < brief.index("## Key Takeaways")
 

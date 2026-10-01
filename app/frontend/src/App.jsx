@@ -34,7 +34,8 @@ function StatsLine({ brief }) {
   const llmSecs = s.seconds || 0;
   const tps = (s.condense || s.single_pass)?.generation_tps;
   const parts = [
-    brief.stt_seconds != null && `Whisper ${formatDuration(brief.stt_seconds)}`,
+    brief.transcript_source?.startsWith("youtube") ? "YouTube captions"
+      : brief.stt_seconds != null && `Whisper ${formatDuration(brief.stt_seconds)}`,
     `${shortModel(s.model)} ${formatDuration(llmSecs)}`,
     tps && `${tps} tok/s`,
     s.chapters?.chapters && `${s.chapters.chapters} chapters`,

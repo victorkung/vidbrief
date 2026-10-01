@@ -101,17 +101,25 @@ def process(
         folder = Path(brief["folder"])
         a = artifacts(folder)
 
-        if not a["audio"].is_file():
-            progress({"stage": "downloading", "percent": 0})
-            media.download_audio(brief["url"], a["audio"], expected_duration=brief.get("duration"),
-                                 on_progress=progress, on_proc=on_proc)
+        # YouTube captions first (seconds, no audio needed); Whisper when there are none.
+        if not a["transcript_json"].is_file() and settings.transcript_source != "whisper":
+            update(stage="captions", percent=4, message="Fetching YouTube captions…", detail=None)
+            label = media.fetch_youtube_captions(brief["url"], a["transcript_json"])
+            if label:
+                update(transcript_source=label)
+            elif settings.transcript_source == "captions":
+                raise RuntimeError("No English captions on this video (TRANSCRIPT_SOURCE=captions).")
 
         if not a["transcript_json"].is_file():
+            if not a["audio"].is_file():
+                progress({"stage": "downloading", "percent": 0})
+                media.download_audio(brief["url"], a["audio"], expected_duration=brief.get("duration"),
+                                     on_progress=progress, on_proc=on_proc)
             progress({"stage": "transcribing", "percent": 0})
             t0 = time.monotonic()
             media.transcribe(a["audio"], model=brief.get("whisper_model") or settings.whisper_model,
                              on_progress=progress, on_proc=on_proc)
-            update(stt_seconds=round(time.monotonic() - t0, 1))
+            update(stt_seconds=round(time.monotonic() - t0, 1), transcript_source="whisper")
 
         if resummarize or not a["brief"].is_file():
             if resummarize:

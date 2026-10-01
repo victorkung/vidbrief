@@ -168,6 +168,7 @@ def write_chapters(
             "user": prompts.chapter_user_prompt(
                 title=starts[i][1], number=i + 1, start=chunking.format_hms(lo), end=chunking.format_hms(hi),
                 points=prompts.render_points(inside), video_title=title,
+                bullets=prompts.bullet_count(lo, hi, sum(k for _, _, k in inside)),
             ),
             "max_tokens": settings.chapter_max_tokens,
             "temperature": temperature,

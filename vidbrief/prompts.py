@@ -78,11 +78,17 @@ def chapters_user_prompt(*, title: str | None, condensed: str, duration_s: float
     )
 
 
+def bullet_count(start_s: float, end_s: float, key_points: int) -> int:
+    """Long or dense chapters get a 4th bullet so their later points aren't squeezed out."""
+    return 4 if (end_s - start_s) >= 12 * 60 or key_points >= 4 else 3
+
+
 def chapter_user_prompt(*, title: str, number: int, start: str, end: str, points: str,
-                        video_title: str | None = None) -> str:
+                        video_title: str | None = None, bullets: int = 3) -> str:
     return (
         f"{_source_line(video_title, None)}CHAPTER {number}: {title} ({start}–{end})\n\nKEY POINTS:\n{points}\n\n"
-        "---\nWrite INTRO and 3 timestamped bullets (4 only if there are 4+ ★ points worth keeping) now."
+        f"---\nWrite INTRO and exactly {bullets} timestamped bullets now, covering this chapter's most important "
+        "points from start to end."
     )
 
 

@@ -161,3 +161,9 @@ def test_copied_takeaways_detected():
     fresh = "- **Design First**: Spend your time on architecture and let AI handle implementation details."
     assert prompts.copied_takeaways(copied, secs) == 1
     assert prompts.copied_takeaways(fresh, secs) == 0
+
+
+def test_bullet_count_grows_for_long_or_dense_chapters():
+    assert prompts.bullet_count(0, 8 * 60, 2) == 3
+    assert prompts.bullet_count(0, 20 * 60, 1) == 4
+    assert prompts.bullet_count(0, 5 * 60, 4) == 4

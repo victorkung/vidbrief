@@ -10,7 +10,7 @@ INTRO: <one or two short sentences, 35 words total at most, stating the chapter'
 - [HH:MM:SS] **<Short Label>**: <one sentence, 20 words at most>
 
 Rules:
-- 3 bullets. Add a 4th only if the chapter has 4 or more ★ points worth keeping.
+- Write exactly the number of bullets the request asks for (3 or 4).
 - Choose the most important points, ★ points first, in the reader's priority order. Do not pick points just to spread them out in time.
 - List the bullets in time order. Copy each timestamp from one of the key points given.
 - Keep the specific names, numbers, and claims. Say who makes the point when it matters ("Mike warns...").

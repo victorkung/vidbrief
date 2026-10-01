@@ -85,15 +85,19 @@ def condense(
     ]
     results, timing = llm.run_jobs(jobs, model=settings.llm_model, on_proc=on_proc,
                                    on_progress=_progress(on_progress, "condensing", "part"))
-    points: dict[int, str] = {}
-    for r in results:
-        for t, text in prompts.parse_points(r.content):
-            points.setdefault(t, text)  # window overlap repeats a paragraph; keep the first
+    points: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for w, r in zip(wins, results):
+        for t, text in chunking.ground_timestamps(prompts.parse_points(r.content), w):
+            key = text.lower()[:60]
+            if key not in seen:  # window overlap can repeat a point; drop only true duplicates
+                seen.add(key)
+                points.append((t, text))
     if not points:
         raise RuntimeError("Condense step produced no timestamped points.")
     stats = _stats(results, [timing])
     stats.update(windows=len(wins), points=len(points), truncated=sum(r.finish_reason == "length" for r in results))
-    return sorted(points.items()), stats
+    return sorted(points, key=lambda p: p[0]), stats
 
 
 def plan_chapters(

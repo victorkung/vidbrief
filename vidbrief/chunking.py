@@ -7,6 +7,8 @@ so the model copies literal timestamps instead of inventing them.
 from __future__ import annotations
 
 import json
+import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -81,3 +83,44 @@ def windows(
         out.append(cur)
     return out
 
+
+
+_STOP = frozenset(
+    "the a an and or but of to in on at for with from by as is are was were be been it its this that these those "
+    "he she they we you i his her their our your him them us me my not no so if then than there here what which who "
+    "about into over also just like very really more most some any all can will would should could has have had do "
+    "does did says said argues notes speaker host guest explains believes thinks".split()
+)
+
+
+def _terms(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9$%.]+", text.lower()) if len(w) > 2 and w not in _STOP}
+
+
+def ground_timestamps(lines: list[tuple[int, str]], paras: list[tuple[float, str]]) -> list[tuple[int, str]]:
+    """Re-time condensed lines to the paragraph they came from.
+
+    Small models sometimes repeat one timestamp for a whole list, or list points slightly out of
+    order. Each line is matched independently to the paragraph sharing the most distinctive words
+    (IDF-weighted); the model's own timestamp only breaks near-ties. Lines that share no
+    distinctive words with any paragraph keep the model's timestamp.
+    """
+    if not lines or not paras:
+        return lines
+    para_terms = [_terms(t) for _, t in paras]
+    df: dict[str, int] = {}
+    for terms in para_terms:
+        for w in terms:
+            df[w] = df.get(w, 0) + 1
+    m = len(paras)
+    idf = {w: math.log((m + 1) / (c + 0.5)) for w, c in df.items()}
+    out: list[tuple[int, str]] = []
+    for ts, text in lines:
+        q = _terms(text)
+        best, best_score = None, 1.0  # need at least ~one distinctive shared word
+        for i in range(m):
+            score = sum(idf.get(w, 0) for w in q & para_terms[i]) - 0.01 * abs(paras[i][0] - ts) / 60
+            if score > best_score:
+                best, best_score = i, score
+        out.append((int(paras[best][0]) if best is not None else ts, text))
+    return out

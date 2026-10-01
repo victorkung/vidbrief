@@ -37,3 +37,18 @@ def test_windows_split_with_overlap_and_cover_all():
 
 def test_empty():
     assert chunking.windows([], max_tokens=10) == []
+
+
+def test_ground_timestamps_fixes_repeated_stamps():
+    paras = [(0, "Bitcoin is a hedge against abundance, hold five percent."),
+             (60, "I started skiing in my forties and took lessons to ski slowly."),
+             (120, "Heart rate variability measures balance in the nervous system.")]
+    lines = [(0, "Bitcoin hedges abundance; hold 5 percent."), (0, "He started skiing in his forties with slow lessons."),
+             (0, "Heart rate variability measures nervous system balance.")]
+    assert [t for t, _ in chunking.ground_timestamps(lines, paras)] == [0, 60, 120]
+
+
+def test_ground_timestamps_handles_out_of_order_and_unmatched():
+    paras = [(0, "alpha intro words"), (60, "beta middle words"), (120, "gamma ending words")]
+    lines = [(0, "gamma ending"), (0, "alpha intro"), (30, "zzz unmatched")]
+    assert [t for t, _ in chunking.ground_timestamps(lines, paras)] == [120, 0, 30]

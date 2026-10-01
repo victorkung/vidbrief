@@ -13,6 +13,7 @@ Rules:
 - Copy each timestamp from one of the key points given.
 - Say who makes the point when it matters ("Mike warns...", "The host notes...").
 - Keep the specific names, numbers, and claims. Merge related points into one bullet.
+- Skip sponsor reads, ads, "subscribe" requests, and promotion of the show's own newsletter or products.
 - Direct, confident, active voice. No filler like "the speaker discusses".
 
 Example:

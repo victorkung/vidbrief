@@ -102,3 +102,15 @@ def test_assembled_brief_validates():
     assert ok, missing
     assert brief.index("## Context") < brief.index("### Chapter 1") < brief.index("## Key Takeaways")
 
+
+
+def test_merge_short_chapters_folds_cold_open_forward():
+    starts = [(0, "Teaser"), (60, "Also Teaser"), (124, "Longevity"), (1500, "Money"), (2400, "Bitcoin"), (3500, "Allergies")]
+    merged = prompts.merge_short_chapters(starts, 4020, 5)
+    assert merged[0] == (0, "Longevity")
+    assert [t for t, _ in merged] == [0, 1500, 2400, 3500]
+
+
+def test_merge_short_chapters_keeps_minimum_three():
+    starts = [(0, "A"), (30, "B"), (60, "C")]
+    assert prompts.merge_short_chapters(starts, 3600, 4) == starts

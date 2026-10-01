@@ -141,6 +141,26 @@ def outline_problems(starts: list[tuple[int, str]], duration_s: float, target: i
     return problems
 
 
+def merge_short_chapters(starts: list[tuple[int, str]], duration_s: float, target: int) -> list[tuple[int, str]]:
+    """Fold chapters much shorter than average (cold-open teasers, brief asides) into a neighbour.
+
+    A short first chapter merges forward and takes the next chapter's title; any other short
+    chapter merges into the one before it. Never goes below 3 chapters.
+    """
+    min_s = max(180.0, 0.35 * duration_s / max(1, target))
+    starts = list(starts)
+    while len(starts) > 3:
+        bounds = [t for t, _ in starts] + [duration_s]
+        lengths = [b - a for a, b in zip(bounds, bounds[1:])]
+        i = min(range(len(starts)), key=lambda k: lengths[k])
+        if lengths[i] >= min_s:
+            break
+        if i == 0:
+            starts[1] = (0, starts[1][1])
+        del starts[i]
+    return starts
+
+
 def parse_chapter(text: str) -> dict | None:
     """chapter.md reply → {'intro', 'bullets'}. None when unusable (caller retries)."""
     intro: list[str] = []

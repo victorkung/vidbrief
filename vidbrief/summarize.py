@@ -134,6 +134,7 @@ def plan_chapters(
             starts = again
     if len(starts) < 3:
         raise RuntimeError("Could not plan chapters (model returned fewer than 3).")
+    starts = prompts.merge_short_chapters(starts, span_s, target)
     stats = _stats(results, timings)
     stats["chapters"] = len(starts)
     return starts, stats

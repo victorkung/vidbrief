@@ -25,8 +25,9 @@ You are an elite research analyst. You have been provided with a full timestampe
 (Break the content into 3-6 thematic chapters. Each chapter is an H3 heading in the exact form `### Section X: Title`, with X being the section number.
 For each chapter:
 - Start with a 1-sentence 'Core Theme' summary in italics.
-- Provide 3-4 bullets, each starting with a timestamp in the form [HH:MM:SS] copied from the transcript.
+- Provide 3-4 bullets (never more than 4), each starting with a timestamp in the form [HH:MM:SS] copied from the transcript.
 - Keep bullets under 25 words. Merge facts where necessary.
+Order the sections by time: Section 1 starts at the beginning and the last section covers the ending. Never jump back in time.
 Cover the entire timeline without tapering off at the end.)
 
 ## Key Takeaways

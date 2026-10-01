@@ -62,8 +62,10 @@ def _write_brief(
         [retry], timing2 = llm.run_jobs([retry_job], model=settings.llm_model, on_progress=prog, on_proc=on_proc)
         results.append(retry)
         timing = {**timing, "load_s": float(timing.get("load_s") or 0) + float(timing2.get("load_s") or 0)}
-        retry_ok, _ = prompts.validate_summary_structure(retry.content)
-        if retry_ok or len(retry.content) > len(brief):
+        retry_ok, retry_missing = prompts.validate_summary_structure(retry.content)
+        better = len(retry_missing) < len(missing) or (len(retry_missing) == len(missing) and res.finish_reason == "length"
+                                                       and retry.finish_reason != "length")
+        if retry_ok or better:
             brief = retry.content
     return brief, _stats(results, timing)
 
@@ -75,6 +77,7 @@ def run(
     settings: Settings,
     title: str | None,
     uploader: str | None,
+    duration_s: float | None = None,
     on_progress: ProgressFn | None = None,
     on_proc: Callable | None = None,
     reuse_condensed: bool = True,
@@ -86,11 +89,14 @@ def run(
     transcript_md = chunking.render(paras)
     (folder / "transcript.md").write_text(transcript_md + "\n", encoding="utf-8")
     stats: dict[str, Any] = {"mode": settings.mode, "model": settings.llm_model}
+    span_s = duration_s or paras[-1][0]
+    sections = prompts.section_count(span_s)
 
     if settings.mode == "single_pass":
         brief, s = _write_brief(
             system=prompts.load_prompt("single_pass"),
-            user=prompts.single_pass_user_prompt(title=title, uploader=uploader, transcript=transcript_md),
+            user=prompts.single_pass_user_prompt(title=title, uploader=uploader, transcript=transcript_md,
+                                                 sections=sections, duration_s=span_s),
             settings=settings, on_progress=on_progress, on_proc=on_proc, stage="synthesizing",
         )
         stats["synthesize"] = s
@@ -129,13 +135,15 @@ def run(
 
         brief, s = _write_brief(
             system=prompts.load_prompt("synthesize"),
-            user=prompts.synthesize_user_prompt(title=title, uploader=uploader, condensed=condensed),
+            user=prompts.synthesize_user_prompt(title=title, uploader=uploader, condensed=condensed,
+                                                sections=sections, duration_s=span_s),
             settings=settings, on_progress=on_progress, on_proc=on_proc, stage="synthesizing",
         )
         stats["synthesize"] = s
         _ledger(settings, {"folder": folder.name, "stage": "synthesize", **s})
 
     ok, missing = prompts.validate_summary_structure(brief)
+    stats["coverage"] = prompts.coverage(brief, span_s)
     stats["valid"] = ok
     stats["missing"] = missing
     (folder / "brief.md").write_text(brief.strip() + "\n", encoding="utf-8")

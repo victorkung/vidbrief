@@ -52,7 +52,7 @@ def load_settings() -> Settings:
         mode=mode if mode in MODES else "two_pass",
         chunk_tokens=_int("CHUNK_TOKENS", 7000),
         extract_max_tokens=_int("EXTRACT_MAX_TOKENS", 2500),
-        synth_max_tokens=_int("SYNTH_MAX_TOKENS", 3000),
+        synth_max_tokens=_int("SYNTH_MAX_TOKENS", 4000),
         extract_temperature=_float("EXTRACT_TEMPERATURE", 0.1),
         synth_temperature=_float("SYNTH_TEMPERATURE", 0.2),
         briefs_dir=Path(os.environ.get("BRIEFS_DIR") or ROOT / "briefs").expanduser(),

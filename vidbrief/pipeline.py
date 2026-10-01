@@ -115,7 +115,7 @@ def process(
             progress({"stage": "extracting" if settings.mode == "two_pass" else "synthesizing", "percent": 0})
             stats = summarize.run(
                 transcript_json=a["transcript_json"], folder=folder, settings=settings,
-                title=brief.get("title"), uploader=brief.get("uploader"),
+                title=brief.get("title"), uploader=brief.get("uploader"), duration_s=brief.get("duration"),
                 on_progress=progress, on_proc=on_proc, reuse_condensed=not resummarize,
             )
             update(llm_model=settings.llm_model, mode=settings.mode, llm_stats=stats)

@@ -160,6 +160,8 @@ def transcribe(
         raise RuntimeError("Transcription was cancelled")
     if code != 0 or not json_path.is_file():
         raise RuntimeError("Whisper transcription failed:\n" + "\n".join(tail)[-800:])
+    # transcribe.py (built for video) extracts an audio sidecar; our input is already audio.
+    (audio.parent / f"{audio.stem}.audio.m4a").unlink(missing_ok=True)
     return json_path
 
 

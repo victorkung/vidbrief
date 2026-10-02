@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
-export type Shot = { src: string; alt: string; width: number; height: number };
+export type Shot = { src: string; srcDark?: string; alt: string; width: number; height: number };
 
 /** Full-screen view of a screenshot. Closes on Escape, the close button, or a click outside the image. */
 export default function Lightbox({ shot, onClose }: { shot: Shot | null; onClose: () => void }) {
@@ -23,6 +23,7 @@ export default function Lightbox({ shot, onClose }: { shot: Shot | null; onClose
   }, [shot, onClose]);
 
   if (!shot) return null;
+  const dark = document.documentElement.dataset.theme === "dark";
   return (
     <div
       role="dialog"
@@ -36,17 +37,17 @@ export default function Lightbox({ shot, onClose }: { shot: Shot | null; onClose
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute top-4 right-4 grid size-10 cursor-pointer place-items-center rounded-full bg-white text-ink shadow-lg hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className="absolute top-4 right-4 grid size-10 cursor-pointer place-items-center rounded-full bg-card text-ink shadow-lg hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
         <X size={20} />
       </button>
       <img
-        src={shot.src}
+        src={dark && shot.srcDark ? shot.srcDark : shot.src}
         alt={shot.alt}
         width={shot.width}
         height={shot.height}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[88vh] max-w-[min(1400px,94vw)] rounded-xl bg-white object-contain shadow-2xl"
+        className="max-h-[88vh] max-w-[min(1400px,94vw)] rounded-xl bg-card object-contain shadow-2xl"
       />
     </div>
   );

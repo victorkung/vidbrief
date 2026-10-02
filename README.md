@@ -2,7 +2,10 @@
 
 **Turn any YouTube or X video into a tight, timestamped executive brief, written and read aloud, entirely on your Mac.** · [vidbrief.io](https://vidbrief.io) Open-source models, no API keys, no cost per video, nothing leaves your machine except the video download.
 
-![A VidBrief brief: high-level overview, context, and timestamped chapters](docs/screenshots/brief.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/brief-dark.png">
+  <img src="docs/screenshots/brief.png" alt="A VidBrief brief: high-level overview, context, and timestamped chapters">
+</picture>
 
 ## Why
 
@@ -18,7 +21,10 @@ I built [PodBrief](https://podbrief.io) to summarize podcasts and videos with co
 - **Key points and full transcript** for every video, in tabs next to the brief.
 - **Easy cleanup.** Deleting a brief deletes its audio, transcript and outputs from disk.
 
-![Library with briefs and a queue of videos waiting their turn](docs/screenshots/library.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/library-dark.png">
+  <img src="docs/screenshots/library.png" alt="Library with briefs and a queue of videos waiting their turn">
+</picture>
 
 ## Requirements
 
@@ -55,7 +61,10 @@ The **Transcription** toggle (Turbo or Small) only matters for videos without ca
 
 **Voice** picks who reads your briefs: press ▶ on any of the 28 voices to hear a sample, then click one to make it the default. Existing briefs keep their voice until you choose **Re-record** on the brief.
 
-![Key points grouped by chapter, with the most important marked](docs/screenshots/key-points.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/key-points-dark.png">
+  <img src="docs/screenshots/key-points.png" alt="Key points grouped by chapter, with the most important marked">
+</picture>
 
 ### From the terminal
 
@@ -218,7 +227,8 @@ scripts/           setup.sh, dev.sh, serve.sh, llm_run.py (mlx-lm), transcribe.p
 prompts/           the prompts and priorities (override in prompts/private/)
 app/frontend/      React UI (Vite)
 docs/reference/    PodBrief example briefs, the format and voice VidBrief follows
-docs/screenshots/  images used in this README
+docs/screenshots/  images used in this README (light and dark)
+docs/brand/        logo, favicon and social images
 site/              the vidbrief.io landing page (Vite + React, deployed on Vercel: cd site && vercel --prod)
 tests/             pytest suite
 ```

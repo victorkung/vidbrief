@@ -12,6 +12,8 @@ import {
   Link2,
   ListChecks,
   Maximize2,
+  Moon,
+  Sun,
   Bot,
   Lock,
   SlidersHorizontal,
@@ -29,17 +31,62 @@ const QUICKSTART = `brew install python yt-dlp ffmpeg node espeak-ng
 git clone https://github.com/victorkung/vidbrief.git
 cd vidbrief && ./scripts/setup.sh && ./scripts/dev.sh`;
 
+/** A screenshot captured in both themes; CSS shows the one matching the page. */
+function ThemedImg({ src, srcDark, className = "", ...rest }: { src: string; srcDark: string; alt: string; width: number; height: number; className?: string; loading?: "lazy" | "eager"; fetchPriority?: "high" | "low" | "auto" }) {
+  return (
+    <>
+      <img src={src} className={`only-light ${className}`} {...rest} />
+      <img src={srcDark} className={`only-dark ${className}`} {...rest} aria-hidden="true" alt="" />
+    </>
+  );
+}
+
 function Wordmark() {
   return (
-    <span className="font-display text-[28px] leading-none tracking-tight">
+    <span className="text-[21px] font-bold leading-none tracking-tight">
       Vid<span className="text-accent">Brief</span>
     </span>
   );
 }
 
+type Theme = "light" | "dark";
+
+function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(
+    () => (document.documentElement.dataset.theme as Theme) || "light",
+  );
+  const toggle = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("vidbrief-theme", next);
+    } catch {
+      /* private mode: the choice just won't persist */
+    }
+    setTheme(next);
+  };
+  return [theme, toggle];
+}
+
+function ThemeToggle() {
+  const [theme, toggle] = useTheme();
+  const dark = theme === "dark";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      title={dark ? "Light mode" : "Dark mode"}
+      className="grid size-9 cursor-pointer place-items-center rounded-full border border-line bg-raised text-ink-2 hover:bg-raised-2 hover:text-ink"
+    >
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
+  );
+}
+
 function Nav() {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-root/90 backdrop-blur">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6" aria-label="Main">
         <a href="#top" aria-label="VidBrief home"><Wordmark /></a>
         <div className="hidden items-center gap-7 text-sm text-ink-2 md:flex">
@@ -49,14 +96,17 @@ function Nav() {
           <a className="hover:text-ink" href="#customize">Customize</a>
           <a className="hover:text-ink" href="#faq">FAQ</a>
         </div>
-        <a
-          href={GITHUB}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-4 py-2 text-sm font-medium hover:bg-raised-2"
-        >
-          <Github size={16} /> <span className="hidden sm:inline">View on</span> GitHub
-        </a>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <a
+            href={GITHUB}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-4 py-2 text-sm font-medium hover:bg-raised-2"
+          >
+            <Github size={16} /> <span className="hidden sm:inline">View on</span> GitHub
+          </a>
+        </div>
       </nav>
     </header>
   );
@@ -69,7 +119,7 @@ function Hero() {
         <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-ink-2">
           <Sparkles size={13} className="text-accent" /> Free and open source · runs on your Mac
         </p>
-        <h1 className="font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl">
+        <h1 className="text-5xl font-bold leading-[1.05] tracking-tight sm:text-7xl">
           Any video, <span className="text-accent">briefed.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 sm:text-xl">
@@ -91,17 +141,18 @@ function Hero() {
             <span className="size-2.5 rounded-full bg-raised-2" />
             <span className="ml-3 text-xs text-ink-3">127.0.0.1:5174</span>
           </div>
-          <img
+          <ThemedImg
             src="/img/brief.webp"
+            srcDark="/img/brief-dark.webp"
             width={2560}
             height={2200}
             alt="A VidBrief brief of Andrej Karpathy's talk: overview, context, timestamped chapters, and a Listen bar"
-            className="block h-auto w-full"
+            className="h-auto w-full"
             fetchPriority="high"
           />
         </div>
       </div>
-      <div className="border-y border-line bg-white">
+      <div className="border-y border-line bg-card">
         <ul className="mx-auto grid max-w-6xl grid-cols-2 gap-4 px-4 py-5 text-sm text-ink-2 sm:px-6 md:grid-cols-4">
           {["Free forever", "No API keys", "Nothing leaves your Mac", "Open source (MIT)"].map((t) => (
             <li key={t} className="flex items-center justify-center gap-2">
@@ -124,7 +175,7 @@ const STEPS = [
 function HowItWorks() {
   return (
     <section id="how" className="section-anchor mx-auto max-w-6xl px-4 py-24 sm:px-6">
-      <h2 className="font-display text-5xl tracking-tight sm:text-6xl">How it works</h2>
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
       <p className="mt-4 max-w-2xl text-lg text-ink-2">
         Four small steps, each sized for a model that runs on a laptop.
       </p>
@@ -133,7 +184,7 @@ function HowItWorks() {
           <li key={title} className="rounded-2xl border border-line bg-card p-6 card-shadow">
             <div className="flex items-center justify-between">
               <span className="grid size-10 place-items-center rounded-xl bg-raised text-accent"><Icon size={20} /></span>
-              <span className="font-display text-3xl text-ink-3">{i + 1}</span>
+              <span className="text-2xl font-semibold text-ink-3">{i + 1}</span>
             </div>
             <h3 className="mt-5 text-lg font-semibold">{title}</h3>
             <p className="mt-2 leading-relaxed text-ink-2">{body}</p>
@@ -148,8 +199,8 @@ function HowItWorks() {
 }
 
 const SHOTS = [
-  { src: "/img/library.webp", width: 2560, height: 2000, alt: "VidBrief library with one video running, one queued, and finished briefs with audio", caption: "Queue several videos at once" },
-  { src: "/img/key-points.webp", width: 2560, height: 2000, alt: "Key points grouped by chapter, with the most important starred", caption: "Every key point, by chapter" },
+  { src: "/img/library.webp", srcDark: "/img/library-dark.webp", width: 2560, height: 2000, alt: "VidBrief library with one video running, one queued, and finished briefs with audio", caption: "Queue several videos at once" },
+  { src: "/img/key-points.webp", srcDark: "/img/key-points-dark.webp", width: 2560, height: 2000, alt: "Key points grouped by chapter, with the most important starred", caption: "Every key point, by chapter" },
 ];
 
 function Sample() {
@@ -158,7 +209,7 @@ function Sample() {
     <section id="sample" className="section-anchor border-y border-line bg-soft">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_1.15fr] [&>*]:min-w-0">
         <div>
-          <h2 className="font-display text-5xl tracking-tight sm:text-6xl">A real brief</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">A real brief</h2>
           <p className="mt-4 text-lg leading-relaxed text-ink-2">
             Andrej Karpathy's 40-minute talk <em>Software Is Changing (Again)</em>, briefed in about four minutes
             on a MacBook. Untouched output: read it, or press play to hear the voice.
@@ -168,15 +219,15 @@ function Sample() {
           </div>
           <div className="mt-8 grid grid-cols-2 gap-3">
             {SHOTS.map((shot) => (
-              <figure key={shot.src} className="overflow-hidden rounded-xl border border-line bg-white card-shadow">
+              <figure key={shot.src} className="overflow-hidden rounded-xl border border-line bg-card card-shadow">
                 <button
                   type="button"
                   onClick={() => setOpen(shot)}
                   aria-label={`Enlarge: ${shot.caption}`}
                   className="group block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  <img src={shot.src} width={shot.width} height={shot.height} loading="lazy" alt={shot.alt}
-                    className="aspect-[4/3] w-full object-cover object-top transition group-hover:opacity-90" />
+                  <ThemedImg src={shot.src} srcDark={shot.srcDark} width={shot.width} height={shot.height} loading="lazy"
+                    alt={shot.alt} className="aspect-[4/3] w-full object-cover object-top transition group-hover:opacity-90" />
                 </button>
                 <figcaption className="flex items-center justify-between px-3 py-2 text-xs text-ink-3">
                   {shot.caption} <Maximize2 size={13} aria-hidden="true" />
@@ -206,7 +257,7 @@ const FEATURES = [
 function Features() {
   return (
     <section id="features" className="section-anchor mx-auto max-w-6xl px-4 py-24 sm:px-6">
-      <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Built for staying current</h2>
+      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built for staying current</h2>
       <p className="mt-4 max-w-2xl text-lg text-ink-2">
         Founder interviews, market roundups, conference talks: get the actionable parts without the two hours.
       </p>
@@ -227,7 +278,7 @@ function Why() {
   return (
     <section className="border-y border-line bg-soft">
       <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
-        <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Why I built it</h2>
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Why I built it</h2>
         <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink-2">
           <p>
             I built <a className="text-accent hover:underline" href="https://podbrief.io" target="_blank" rel="noopener noreferrer">PodBrief</a> to turn podcasts
@@ -287,7 +338,7 @@ function MakeItYours() {
           <Bot size={22} />
           <span className="text-sm font-medium">Works great with Claude Code, Codex, Cursor and other coding agents</span>
         </div>
-        <h2 className="mt-4 font-display text-5xl tracking-tight sm:text-6xl">Make it yours with your AI agent</h2>
+        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Make it yours with your AI agent</h2>
         <p className="mt-4 max-w-3xl text-lg leading-relaxed text-ink-2">
           VidBrief is plain, well-documented code. The README and AGENTS.md are written for coding agents as much as
           for people, so the easiest way to install it, tune the prompts, or reshape the tool is to ask your agent.
@@ -324,7 +375,7 @@ function GetStarted() {
     <section id="start" className="section-anchor mx-auto max-w-6xl px-4 py-24 sm:px-6">
       <div className="grid gap-10 lg:grid-cols-[1fr_1.3fr] lg:items-start [&>*]:min-w-0">
         <div>
-          <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Get started</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Get started</h2>
           <ul className="mt-6 space-y-3 text-ink-2">
             {[
               "Mac with Apple Silicon (M1 or later)",
@@ -371,7 +422,7 @@ function FAQ() {
   return (
     <section id="faq" className="section-anchor border-t border-line">
       <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
-        <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Questions</h2>
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions</h2>
         <div className="mt-10 divide-y divide-line border-y border-line">
           {FAQS.map(([q, a]) => (
             <details key={q} className="group py-5">

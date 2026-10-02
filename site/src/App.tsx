@@ -11,11 +11,14 @@ import {
   Layers,
   Link2,
   ListChecks,
+  Maximize2,
+  Bot,
   Lock,
   SlidersHorizontal,
   Sparkles,
   Zap,
 } from "lucide-react";
+import Lightbox, { type Shot } from "./components/Lightbox";
 import Markdown from "./components/Markdown";
 import Player from "./components/Player";
 import karpathy from "./content/karpathy.md?raw";
@@ -43,10 +46,13 @@ function Nav() {
           <a className="hover:text-ink" href="#how">How it works</a>
           <a className="hover:text-ink" href="#sample">Sample</a>
           <a className="hover:text-ink" href="#features">Features</a>
+          <a className="hover:text-ink" href="#customize">Customize</a>
           <a className="hover:text-ink" href="#faq">FAQ</a>
         </div>
         <a
           href={GITHUB}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-4 py-2 text-sm font-medium hover:bg-raised-2"
         >
           <Github size={16} /> <span className="hidden sm:inline">View on</span> GitHub
@@ -71,7 +77,7 @@ function Hero() {
           your Mac. No API keys, no subscriptions, nothing sent to the cloud.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href={GITHUB} className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
+          <a href={GITHUB} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
             <Github size={18} /> Get it on GitHub
           </a>
           <a href="#sample" className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-6 py-3 font-medium hover:bg-raised-2">
@@ -141,7 +147,13 @@ function HowItWorks() {
   );
 }
 
+const SHOTS = [
+  { src: "/img/library.webp", width: 2560, height: 2000, alt: "VidBrief library with one video running, one queued, and finished briefs with audio", caption: "Queue several videos at once" },
+  { src: "/img/key-points.webp", width: 2560, height: 2000, alt: "Key points grouped by chapter, with the most important starred", caption: "Every key point, by chapter" },
+];
+
 function Sample() {
+  const [open, setOpen] = useState<Shot | null>(null);
   return (
     <section id="sample" className="section-anchor border-y border-line bg-soft">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_1.15fr] [&>*]:min-w-0">
@@ -155,15 +167,24 @@ function Sample() {
             <Player src="/sample/karpathy.mp3" label="Listen to this brief" />
           </div>
           <div className="mt-8 grid grid-cols-2 gap-3">
-            <figure className="overflow-hidden rounded-xl border border-line">
-              <img src="/img/library.webp" width={2560} height={1520} loading="lazy" alt="Library with a queue of videos" className="aspect-[4/3] w-full object-cover object-top" />
-              <figcaption className="px-3 py-2 text-xs text-ink-3">Queue several videos at once</figcaption>
-            </figure>
-            <figure className="overflow-hidden rounded-xl border border-line">
-              <img src="/img/key-points.webp" width={2560} height={2000} loading="lazy" alt="Key points grouped by chapter" className="aspect-[4/3] w-full object-cover object-top" />
-              <figcaption className="px-3 py-2 text-xs text-ink-3">Every key point, by chapter</figcaption>
-            </figure>
+            {SHOTS.map((shot) => (
+              <figure key={shot.src} className="overflow-hidden rounded-xl border border-line bg-white card-shadow">
+                <button
+                  type="button"
+                  onClick={() => setOpen(shot)}
+                  aria-label={`Enlarge: ${shot.caption}`}
+                  className="group block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <img src={shot.src} width={shot.width} height={shot.height} loading="lazy" alt={shot.alt}
+                    className="aspect-[4/3] w-full object-cover object-top transition group-hover:opacity-90" />
+                </button>
+                <figcaption className="flex items-center justify-between px-3 py-2 text-xs text-ink-3">
+                  {shot.caption} <Maximize2 size={13} aria-hidden="true" />
+                </figcaption>
+              </figure>
+            ))}
           </div>
+          <Lightbox shot={open} onClose={() => setOpen(null)} />
         </div>
         <article className="max-h-[760px] overflow-y-auto rounded-2xl border border-line bg-root p-6 sm:p-8" aria-label="Sample brief">
           <Markdown text={karpathy} videoUrl={SAMPLE_VIDEO} />
@@ -209,7 +230,7 @@ function Why() {
         <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Why I built it</h2>
         <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink-2">
           <p>
-            I built <a className="text-accent hover:underline" href="https://podbrief.io">PodBrief</a> to turn podcasts
+            I built <a className="text-accent hover:underline" href="https://podbrief.io" target="_blank" rel="noopener noreferrer">PodBrief</a> to turn podcasts
             and videos into written and audio briefs. It runs on commercial APIs for transcription, summaries and
             voice, and I loved using it. But every brief costs money and sends content to someone else's servers.
           </p>
@@ -219,6 +240,74 @@ function Why() {
             on your Mac. It's free, it's private, and the code is yours to change.
           </p>
         </div>
+      </div>
+    </section>
+  );
+}
+
+const AGENT_PROMPTS = [
+  {
+    title: "Set it up for me",
+    prompt: "Clone https://github.com/victorkung/vidbrief, follow AGENTS.md to install it on my Mac, and start the app.",
+  },
+  {
+    title: "Focus on what I care about",
+    prompt:
+      "In VidBrief, create prompts/private/priorities.md so briefs focus on biotech deals and clinical trial results, keep every number, and skip sponsor reads and small talk.",
+  },
+  {
+    title: "Change the format",
+    prompt:
+      "Change VidBrief so every brief ends with a short \"What to watch next\" section, update the tests, and re-summarize my latest brief.",
+  },
+];
+
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-3 hover:bg-raised hover:text-ink"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : label}
+    </button>
+  );
+}
+
+function MakeItYours() {
+  return (
+    <section id="customize" className="section-anchor border-y border-line bg-soft">
+      <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+        <div className="flex items-center gap-3 text-accent">
+          <Bot size={22} />
+          <span className="text-sm font-medium">Works great with Claude Code, Codex, Cursor and other coding agents</span>
+        </div>
+        <h2 className="mt-4 font-display text-5xl tracking-tight sm:text-6xl">Make it yours with your AI agent</h2>
+        <p className="mt-4 max-w-3xl text-lg leading-relaxed text-ink-2">
+          VidBrief is plain, well-documented code. The README and AGENTS.md are written for coding agents as much as
+          for people, so the easiest way to install it, tune the prompts, or reshape the tool is to ask your agent.
+          Start with one of these:
+        </p>
+        <div className="mt-10 grid gap-4 md:grid-cols-3 [&>*]:min-w-0">
+          {AGENT_PROMPTS.map(({ title, prompt }) => (
+            <div key={title} className="flex flex-col rounded-2xl border border-line bg-card p-5 card-shadow">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-semibold">{title}</h3>
+                <CopyButton text={prompt} />
+              </div>
+              <p className="mt-3 flex-1 rounded-xl bg-raised p-4 font-mono text-[13px] leading-relaxed text-ink-2 [overflow-wrap:anywhere]">{prompt}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-sm text-ink-3">
+          Your changes to prompts go in <code className="rounded bg-raised px-1.5 py-0.5">prompts/private/</code>, so
+          they stay yours when you pull updates.
+        </p>
       </div>
     </section>
   );
@@ -260,7 +349,7 @@ function GetStarted() {
           <p className="mt-4 flex items-center gap-2 text-sm text-ink-2">
             <Clock size={15} className="text-accent" /> First setup downloads about 7.8 GB of models, then opens at
             127.0.0.1:5174.{" "}
-            <a className="text-accent hover:underline" href={`${GITHUB}#quick-start`}>Full instructions</a>
+            <a className="text-accent hover:underline" href={`${GITHUB}#quick-start`} target="_blank" rel="noopener noreferrer">Full instructions</a>
           </p>
         </div>
       </div>
@@ -275,7 +364,7 @@ const FAQS = [
   ["What can I summarize?", "YouTube and X (Twitter) video links today, including long podcasts and livestream recordings."],
   ["How accurate is it?", "Briefs use only what's said in the video, and every timestamp is checked against the transcript. A local model is less polished than the biggest cloud models, and names can occasionally be misheard, so treat it as a fast first read."],
   ["What data leaves my Mac?", "Only what's needed to fetch the video, its captions and its title, plus a one-time model download. Transcripts, briefs and audio never leave your machine."],
-  ["Can I change the voice or what it focuses on?", "Yes. Pick any of 28 voices in the app. Edit one plain-English file to tell it what's important to you, and override any prompt."],
+  ["Can I change the voice or what it focuses on?", "Yes. Pick any of 28 voices in the app, and edit one plain-English file to tell it what's important to you. For anything bigger, ask your AI coding agent: the code and docs are written to be changed that way."],
 ];
 
 function FAQ() {
@@ -305,8 +394,8 @@ function Footer() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 py-10 text-sm text-ink-3 sm:flex-row sm:px-6">
         <div className="flex items-center gap-3"><Wordmark /> <span>Any video, briefed.</span></div>
         <div className="flex flex-wrap items-center justify-center gap-5">
-          <a className="hover:text-ink" href={GITHUB}>GitHub</a>
-          <a className="hover:text-ink" href="https://podbrief.io">PodBrief</a>
+          <a className="hover:text-ink" href={GITHUB} target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a className="hover:text-ink" href="https://podbrief.io" target="_blank" rel="noopener noreferrer">PodBrief</a>
           <span>MIT license</span>
         </div>
       </div>
@@ -329,6 +418,7 @@ export default function App() {
         <Features />
         <Why />
         <GetStarted />
+        <MakeItYours />
         <FAQ />
       </main>
       <Footer />

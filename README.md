@@ -92,6 +92,12 @@ Models run one at a time across every VidBrief process on the Mac (a file lock),
 
 ## Make it yours
 
+The easiest way to customize VidBrief is to ask your AI coding agent (Claude Code, Codex, Cursor and the like). This README and [`AGENTS.md`](AGENTS.md) are written for agents, so prompts like these work well:
+
+- "Clone https://github.com/victorkung/vidbrief, follow AGENTS.md to install it on my Mac, and start the app."
+- "In VidBrief, create `prompts/private/priorities.md` so briefs focus on biotech deals and clinical trial results, keep every number, and skip sponsor reads."
+- "Change VidBrief so every brief ends with a short 'What to watch next' section, update the tests, and re-summarize my latest brief."
+
 ### What "important" means
 
 Edit [`prompts/priorities.md`](prompts/priorities.md). It's plain English and is included in every summarizing step. The default is written for staying up to date on tech and markets: it keeps actionable advice, news and numbers, predictions, and frameworks, and drops anecdotes, banter, ads and self-promotion.

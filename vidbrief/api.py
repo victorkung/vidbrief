@@ -296,19 +296,23 @@ _preview_lock = threading.Lock()
 
 @app.get("/api/voices/{voice}/preview")
 def voice_preview(voice: str) -> FileResponse:
-    """A ~10 s sample of a voice, recorded once and cached in DATA_DIR/voice_previews/."""
+    """A short "Hi, I'm …" sample of a voice, recorded once and cached in DATA_DIR/voice_previews/."""
     if voice not in voices.VOICE_IDS:
         raise HTTPException(404, "Unknown voice")
     s = load_settings()
-    path = s.data_dir / "voice_previews" / f"{voice}.mp3"
+    folder = s.data_dir / "voice_previews"
+    path = folder / voices.preview_filename(voice)
     with _preview_lock:
         if not path.is_file():
-            path.parent.mkdir(parents=True, exist_ok=True)
+            folder.mkdir(parents=True, exist_ok=True)
             s.tts_voice = voice
             try:
-                speech.synthesize(voices.PREVIEW_TEXT, path, settings=s)
+                speech.synthesize(voices.preview_text(voice), path, settings=s)
             except RuntimeError as exc:
                 raise HTTPException(500, str(exc)) from exc
+            for old in [*folder.glob(f"{voice}-*.mp3"), folder / f"{voice}.mp3"]:
+                if old != path:
+                    old.unlink(missing_ok=True)  # samples recorded with older wording
     return FileResponse(path, media_type="audio/mpeg")
 
 

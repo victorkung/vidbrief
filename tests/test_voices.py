@@ -30,3 +30,11 @@ def test_unknown_voice_rejected(tmp_path):
         voices.save_voice(tmp_path, "xx_nope")
     (tmp_path / "settings.json").write_text('{"tts_voice": "xx_nope"}')
     assert voices.saved_voice(tmp_path) is None
+
+
+def test_preview_is_a_personal_intro_and_cache_tracks_wording(monkeypatch):
+    assert voices.preview_text("bm_george") == "Hi, I'm George. I will read your briefs like this."
+    before = voices.preview_filename("bm_george")
+    assert before.startswith("bm_george-") and before.endswith(".mp3")
+    monkeypatch.setattr(voices, "PREVIEW_TEMPLATE", "Hello, {name} here.")
+    assert voices.preview_filename("bm_george") != before

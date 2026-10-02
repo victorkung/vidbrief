@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -23,15 +24,26 @@ _CATALOG = [
 RECOMMENDED = ("af_heart", "af_bella", "am_michael", "am_fenrir", "bf_emma", "bm_george")
 DEFAULT_VOICE = "af_heart"
 VOICE_IDS = frozenset(v for v, _, _ in _CATALOG)
-PREVIEW_TEXT = (
-    "Here's your VidBrief. Bitcoin dominance sits at 58 percent, and the 30-year yield just hit 5.17 percent. "
-    "The takeaway: stay patient and keep some cash ready."
-)
+PREVIEW_TEMPLATE = "Hi, I'm {name}. I will read your briefs like this."
+
+
+def voice_name(voice: str) -> str:
+    return voice.split("_", 1)[1].title()
+
+
+def preview_text(voice: str) -> str:
+    return PREVIEW_TEMPLATE.format(name=voice_name(voice))
+
+
+def preview_filename(voice: str) -> str:
+    """Cache name that changes whenever the preview wording does, so stale samples aren't served."""
+    digest = hashlib.sha1(preview_text(voice).encode()).hexdigest()[:8]
+    return f"{voice}-{digest}.mp3"
 
 
 def catalog() -> list[dict[str, Any]]:
     return [
-        {"id": v, "name": v.split("_", 1)[1].title(), "accent": accent, "gender": gender,
+        {"id": v, "name": voice_name(v), "accent": accent, "gender": gender,
          "recommended": v in RECOMMENDED}
         for v, accent, gender in _CATALOG
     ]

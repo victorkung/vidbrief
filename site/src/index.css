@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Tokens shared with the VidBrief app (and PodBrief). */
+@theme {
+  --color-ink: #f5efe4;
+  --color-ink-2: rgb(245 239 228 / 0.66);
+  --color-ink-3: #8a857c;
+  --color-root: #070707;
+  --color-card: #0c0a08;
+  --color-raised: #1a1a1a;
+  --color-raised-2: #262626;
+  --color-line: #2a2a2a;
+  --color-gold: #e0b352;
+  --color-gold-end: #da840b;
+  --font-display: "Instrument Serif", "Times New Roman", serif;
+  --font-sans: "Google Sans", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--color-root);
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--color-root);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+::selection { background: rgb(224 179 82 / 0.35); }
+
+.gold-text {
+  padding-right: 0.12em; /* italic glyphs overhang their box; keep them inside the gradient clip */
+  background: linear-gradient(to right, var(--color-gold), var(--color-gold-end));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gold-bg { background: linear-gradient(to right, var(--color-gold), var(--color-gold-end)); }
+.glow { box-shadow: 0 8px 32px rgb(224 179 82 / 0.28); }
+.hero-aura {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(224 179 82 / 0.16), transparent 70%),
+    radial-gradient(40% 40% at 85% 20%, rgb(218 132 11 / 0.08), transparent 70%);
+}
+.section-anchor { scroll-margin-top: 80px; }
+
+/* Sample brief typography (mirrors the app's reader). */
+.prose-brief h2 { font-size: 1.25rem; font-weight: 700; margin: 1.6rem 0 0.6rem; }
+.prose-brief h3 { font-size: 1.05rem; font-weight: 600; margin: 1.3rem 0 0.4rem; }
+.prose-brief p { margin: 0 0 0.9rem; color: var(--color-ink); line-height: 1.65; }
+.prose-brief ul { margin: 0.4rem 0 1rem; padding-left: 1.25rem; list-style: disc; }
+.prose-brief li { margin-bottom: 0.45rem; line-height: 1.6; }
+.prose-brief li::marker { color: var(--color-gold); }
+.prose-brief .ts { color: var(--color-gold); font-variant-numeric: tabular-nums; text-decoration: none; font-weight: 500; }
+.prose-brief .ts:hover { text-decoration: underline; }
+.prose-brief .meta { color: var(--color-ink-3); font-style: italic; }
+
+input[type="range"].scrub {
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-gold) var(--pct, 0%), var(--color-raised-2) var(--pct, 0%));
+  cursor: pointer;
+}
+input[type="range"].scrub::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--color-ink); }
+input[type="range"].scrub::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--color-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

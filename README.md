@@ -1,6 +1,6 @@
 # VidBrief
 
-**Turn any YouTube or X video into a tight, timestamped executive brief, written and read aloud, entirely on your Mac.** Open-source models, no API keys, no cost per video, nothing leaves your machine except the video download.
+**Turn any YouTube or X video into a tight, timestamped executive brief, written and read aloud, entirely on your Mac.** · [vidbrief.io](https://vidbrief.io) Open-source models, no API keys, no cost per video, nothing leaves your machine except the video download.
 
 ![A VidBrief brief: high-level overview, context, and timestamped chapters](docs/screenshots/brief.png)
 
@@ -213,6 +213,7 @@ prompts/           the prompts and priorities (override in prompts/private/)
 app/frontend/      React UI (Vite)
 docs/reference/    PodBrief example briefs, the format and voice VidBrief follows
 docs/screenshots/  images used in this README
+site/              the vidbrief.io landing page (Vite + React, deployed on Vercel: cd site && vercel --prod)
 tests/             pytest suite
 ```
 

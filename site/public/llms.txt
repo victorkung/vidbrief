@@ -1,0 +1,14 @@
+# VidBrief
+
+> Free, open-source app that turns any YouTube or X video into a timestamped executive brief and reads it aloud, entirely on an Apple Silicon Mac. No API keys or cloud services.
+
+- Pipeline: YouTube captions (or yt-dlp + MLX Whisper) → local LLM via mlx-lm (condense → plan chapters → write chapters → overview) → Kokoro text-to-speech.
+- Output: High-Level Overview, Context, topic chapters with [HH:MM:SS] bullets, Key Takeaways, plus an MP3.
+- Requirements: Apple Silicon Mac (16 GB recommended), Homebrew, Python 3.10+, Node 18+, espeak-ng; ~7.8 GB of models.
+- License: MIT.
+
+## Links
+
+- [Source code and setup instructions](https://github.com/victorkung/vidbrief)
+- [README (human and agent setup steps)](https://github.com/victorkung/vidbrief/blob/main/README.md)
+- [AGENTS.md (for coding agents)](https://github.com/victorkung/vidbrief/blob/main/AGENTS.md)

@@ -18,3 +18,7 @@ app/frontend/dist/
 .DS_Store
 .idea/
 .vscode/
+
+site/node_modules/
+site/dist/
+site/.vercel/

@@ -11,6 +11,7 @@ from .envload import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 
 DEFAULT_LLM_MODEL = "mlx-community/Qwen3.5-9B-MLX-4bit"
+DEFAULT_TTS_MODEL = "mlx-community/Kokoro-82M-bf16"
 DEFAULT_WHISPER = "turbo"  # large-v3-turbo: much better on names and numbers; small is faster
 MODES = ("chaptered", "single_pass")
 MODE_ALIASES = {"two_pass": "chaptered", "three_pass": "chaptered"}
@@ -56,6 +57,10 @@ class Settings:
     overview_temperature: float
     briefs_dir: Path
     data_dir: Path
+    tts_enabled: bool = True
+    tts_model: str = DEFAULT_TTS_MODEL
+    tts_voice: str = "af_heart"
+    tts_speed: float = 1.0
 
 
 def load_settings() -> Settings:
@@ -79,4 +84,8 @@ def load_settings() -> Settings:
         overview_temperature=_float("OVERVIEW_TEMPERATURE", 0.3),
         briefs_dir=Path(os.environ.get("BRIEFS_DIR") or ROOT / "briefs").expanduser(),
         data_dir=Path(os.environ.get("DATA_DIR") or ROOT / "data").expanduser(),
+        tts_enabled=(os.environ.get("TTS_ENABLED") or "1").strip().lower() not in {"0", "false", "no", "off"},
+        tts_model=(os.environ.get("TTS_MODEL") or DEFAULT_TTS_MODEL).strip(),
+        tts_voice=(os.environ.get("TTS_VOICE") or "af_heart").strip(),
+        tts_speed=_float("TTS_SPEED", 1.0),
     )

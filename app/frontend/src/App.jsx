@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatDuration, stageLabel } from "./api";
+import AudioBar from "./audio.jsx";
 import Markdown from "./markdown.jsx";
 
 const ACTIVE = new Set(["queued", "running", "pending"]);
@@ -300,6 +301,15 @@ export default function App() {
                         {b.uploader && <span>{b.uploader}</span>}
                         {b.published && <span>{formatPublished(b.published)}</span>}
                         {b.duration != null && <span>{formatDuration(b.duration)}</span>}
+                        {b.audio_seconds && b.status === "ready" && (
+                          <span className="card-audio" title="Audio ready">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z" />
+                            </svg>
+                            {formatDuration(b.audio_seconds)}
+                          </span>
+                        )}
                       </div>
                     </button>
                     <button type="button" className="card-delete" title="Delete brief and its files"
@@ -364,6 +374,16 @@ export default function App() {
               </button>
             )}
           </div>
+
+          {detail?.status === "ready" && detail.audio && <AudioBar key={detail.id} brief={detail} />}
+          {detail?.status === "ready" && detail.folder && !detail.audio && (
+            <div className="listen listen-empty">
+              <span>{detail.audio_error ? "Audio couldn't be recorded." : "No audio for this brief yet."}</span>
+              <button type="button" className="btn small" onClick={() => act(() => api.voice(detail.id))}>
+                {detail.audio_error ? "Try again" : "Create audio"}
+              </button>
+            </div>
+          )}
 
           {detail && detail.status !== "ready" && (
             <div className="progress">

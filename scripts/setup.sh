@@ -12,7 +12,7 @@ if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
 fi
 
 missing=()
-for tool in python3 yt-dlp ffmpeg node; do
+for tool in python3 yt-dlp ffmpeg node espeak-ng; do
   command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
 done
 if (( ${#missing[@]} )); then
@@ -26,7 +26,9 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 echo "→ installing Python deps"
 .venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r requirements.txt
+.venv/bin/pip install -q --prefer-binary -r requirements.txt
+.venv/bin/python -c "import spacy; spacy.load('en_core_web_sm')" 2>/dev/null \
+  || .venv/bin/python -m spacy download en_core_web_sm >/dev/null
 
 if [[ ! -d app/frontend/node_modules ]]; then
   echo "→ installing UI deps"
@@ -36,14 +38,14 @@ fi
 [[ -f .env ]] || cp .env.example .env
 
 if [[ "${SKIP_MODELS:-0}" != "1" ]]; then
-  echo "→ prefetching models (first time: ~7.5 GB; set SKIP_MODELS=1 to skip)"
+  echo "→ prefetching models (first time: ~7.8 GB; set SKIP_MODELS=1 to skip)"
   .venv/bin/python -c "
 import importlib.util
 from vidbrief.config import load_settings
 s = load_settings()  # loads .env (HF_HOME) before huggingface_hub reads it
 from huggingface_hub import snapshot_download
 spec = importlib.util.spec_from_file_location('t', 'scripts/transcribe.py'); t = importlib.util.module_from_spec(spec); spec.loader.exec_module(t)
-for repo in (t.resolve_model_repo(s.whisper_model), s.llm_model):
+for repo in (t.resolve_model_repo(s.whisper_model), s.llm_model, s.tts_model):
     print('  ', repo); snapshot_download(repo)
 "
 fi

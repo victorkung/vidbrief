@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from . import media, pipeline
@@ -205,6 +206,7 @@ def get_brief(brief_id: str) -> dict[str, Any]:
         raise HTTPException(404, "Brief not found")
     if row.get("folder"):
         a = pipeline.artifacts(Path(row["folder"]))
+        row["audio"] = a["brief_audio"].is_file()
         row["brief_md"] = _read(a["brief"])
         row["condensed_md"] = _read(a["key_points"]) or _read(a["condensed"])
         row["transcript"] = _read(a["transcript_md"])
@@ -255,6 +257,28 @@ def resummarize(brief_id: str, body: ResummarizeBody) -> dict[str, Any]:
     if not row or not row.get("folder"):
         raise HTTPException(404, "Brief not found or not transcribed yet")
     _enqueue(brief_id, resummarize=True, mode=body.mode)
+    return {"ok": True}
+
+
+@app.get("/api/briefs/{brief_id}/audio")
+def audio(brief_id: str) -> FileResponse:
+    """The brief read aloud (MP3). Supports Range requests so the player can seek."""
+    row = lib.get_brief(brief_id)
+    path = pipeline.artifacts(Path(row["folder"]))["brief_audio"] if row and row.get("folder") else None
+    if not path or not path.is_file():
+        raise HTTPException(404, "No audio for this brief yet")
+    name = f"{(row.get('title') or 'brief')[:80]}.mp3".replace("/", "-")
+    return FileResponse(path, media_type="audio/mpeg", filename=name, content_disposition_type="inline")
+
+
+@app.post("/api/briefs/{brief_id}/voice")
+def regenerate_voice(brief_id: str) -> dict[str, Any]:
+    """Queue (re)recording the audio for a finished brief."""
+    row = lib.get_brief(brief_id)
+    if not row or not row.get("folder"):
+        raise HTTPException(404, "Brief not found")
+    pipeline.artifacts(Path(row["folder"]))["brief_audio"].unlink(missing_ok=True)
+    _enqueue(brief_id)
     return {"ok": True}
 
 

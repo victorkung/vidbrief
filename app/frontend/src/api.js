@@ -43,6 +43,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ mode }),
     }),
+  voice: (id) => request(`/api/briefs/${id}/voice`, { method: "POST" }),
   cancel: (id) => request(`/api/briefs/${id}/cancel`, { method: "POST" }),
   retry: (id) =>
     request(`/api/briefs/${id}/retry`, {
@@ -75,6 +76,7 @@ export function stageLabel(stage) {
       chapters: "Planning chapters",
       writing: "Writing chapters",
       synthesizing: "Writing summary",
+      voicing: "Recording audio",
       done: "Ready",
       error: "Error",
       cancelled: "Cancelled",

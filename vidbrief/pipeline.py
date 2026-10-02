@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Callable
 
-from . import media, summarize
+from . import media, speech, summarize
 from .config import Settings
 from .naming import canonicalize_media_url, clean_title, is_supported_url, make_project_dir
 from .store import Library, make_brief
@@ -24,10 +24,11 @@ BANDS = {
     "resolving": (0, 3),
     "downloading": (3, 15),
     "transcribing": (15, 55),
-    "condensing": (55, 78),
-    "chapters": (78, 81),
-    "writing": (81, 93),
-    "synthesizing": (93, 99),
+    "condensing": (55, 76),
+    "chapters": (76, 79),
+    "writing": (79, 89),
+    "synthesizing": (89, 93),
+    "voicing": (93, 99),
 }
 MESSAGES = {
     "resolving": "Resolving URL…",
@@ -37,6 +38,7 @@ MESSAGES = {
     "chapters": "Planning chapters…",
     "writing": "Writing chapters…",
     "synthesizing": "Writing summary…",
+    "voicing": "Recording audio…",
 }
 
 
@@ -59,7 +61,38 @@ def artifacts(folder: Path) -> dict[str, Path]:
         "condensed": folder / "condensed.md",
         "key_points": folder / "key_points.md",
         "brief": folder / "brief.md",
+        "brief_audio": folder / "brief.mp3",
     }
+
+
+def voice(
+    brief: dict[str, Any],
+    folder: Path,
+    settings: Settings,
+    *,
+    on_progress: Callable | None = None,
+    on_proc: Callable | None = None,
+    update: Callable[..., None] | None = None,
+) -> bool:
+    """Record brief.mp3. A failure is recorded on the brief but never fails it (the text is the product)."""
+    a = artifacts(folder)
+    if not a["brief"].is_file():
+        return False
+    if on_progress:
+        on_progress({"stage": "voicing", "percent": 0})
+    text = speech.brief_to_speech(a["brief"].read_text(encoding="utf-8"),
+                                  title=brief.get("title"), uploader=brief.get("uploader"))
+    try:
+        result = speech.synthesize(text, a["brief_audio"], settings=settings, on_progress=on_progress, on_proc=on_proc)
+    except Exception as exc:  # noqa: BLE001
+        if "cancelled" in str(exc).lower():
+            raise
+        if update:
+            update(audio_error=str(exc)[:300])
+        return False
+    if update:
+        update(audio_seconds=result.get("seconds"), audio_error=None)
+    return True
 
 
 def library(settings: Settings) -> Library:
@@ -138,6 +171,7 @@ def process(
         if resummarize or not a["brief"].is_file():
             if resummarize:
                 a["brief"].unlink(missing_ok=True)
+            a["brief_audio"].unlink(missing_ok=True)  # audio must match the brief text
             progress({"stage": "condensing" if settings.mode == "chaptered" else "synthesizing", "percent": 0})
             stats = summarize.run(
                 transcript_json=a["transcript_json"], folder=folder, settings=settings,
@@ -147,6 +181,9 @@ def process(
             )
             update(llm_model=settings.llm_model, mode=settings.mode, llm_stats=stats)
             (folder / "meta.json").write_text(json.dumps(brief, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+        if settings.tts_enabled and not a["brief_audio"].is_file():
+            voice(brief, folder, settings, on_progress=progress, on_proc=on_proc, update=update)
 
         update(status="ready", stage="done", percent=100, message="Ready", detail=None,
                brief_path=str(a["brief"]), total_seconds=round(time.monotonic() - started, 1))

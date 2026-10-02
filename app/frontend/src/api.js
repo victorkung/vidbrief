@@ -43,6 +43,9 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ mode }),
     }),
+  voices: () => request("/api/voices"),
+  setVoice: (voice) =>
+    request("/api/settings/voice", { method: "PUT", headers: jsonHeaders, body: JSON.stringify({ voice }) }),
   voice: (id) => request(`/api/briefs/${id}/voice`, { method: "POST" }),
   cancel: (id) => request(`/api/briefs/${id}/cancel`, { method: "POST" }),
   retry: (id) =>

@@ -13,7 +13,11 @@ function savedSpeed() {
 }
 
 /** Listen bar: play/pause, scrub, speed, download. Uses the native <audio> element underneath. */
-export default function AudioBar({ brief }) {
+function voiceName(id) {
+  return id ? id.split("_")[1].replace(/^./, (c) => c.toUpperCase()) : "";
+}
+
+export default function AudioBar({ brief, currentVoice, onRerecord }) {
   const ref = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -95,7 +99,15 @@ export default function AudioBar({ brief }) {
       </button>
       <div className="listen-main">
         <div className="listen-label">
-          <span>{playing ? "Listening" : time > 0 ? "Paused" : "Listen to this brief"}</span>
+          <span>
+            {playing ? "Listening" : time > 0 ? "Paused" : "Listen to this brief"}
+            {brief.audio_voice && <span className="listen-voice"> · {voiceName(brief.audio_voice)}</span>}
+            {currentVoice && brief.audio_voice && currentVoice !== brief.audio_voice && onRerecord && (
+              <button type="button" className="listen-rerecord" onClick={onRerecord}>
+                Re-record as {voiceName(currentVoice)}
+              </button>
+            )}
+          </span>
           <span className="listen-time">
             {formatDuration(time)} / {formatDuration(duration)}
           </span>

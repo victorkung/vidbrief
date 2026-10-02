@@ -91,7 +91,7 @@ def voice(
             update(audio_error=str(exc)[:300])
         return False
     if update:
-        update(audio_seconds=result.get("seconds"), audio_error=None)
+        update(audio_seconds=result.get("seconds"), audio_voice=settings.tts_voice, audio_error=None)
     return True
 
 

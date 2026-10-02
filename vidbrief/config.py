@@ -64,7 +64,10 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    from .voices import DEFAULT_VOICE, saved_voice
+
     load_dotenv(ROOT)
+    data_dir = Path(os.environ.get("DATA_DIR") or ROOT / "data").expanduser()
     mode = (os.environ.get("SUMMARY_MODE") or "chaptered").strip().lower()
     mode = MODE_ALIASES.get(mode, mode)
     return Settings(
@@ -83,9 +86,10 @@ def load_settings() -> Settings:
         chapter_temperature=_float("CHAPTER_TEMPERATURE", 0.2),
         overview_temperature=_float("OVERVIEW_TEMPERATURE", 0.3),
         briefs_dir=Path(os.environ.get("BRIEFS_DIR") or ROOT / "briefs").expanduser(),
-        data_dir=Path(os.environ.get("DATA_DIR") or ROOT / "data").expanduser(),
+        data_dir=data_dir,
         tts_enabled=(os.environ.get("TTS_ENABLED") or "1").strip().lower() not in {"0", "false", "no", "off"},
         tts_model=(os.environ.get("TTS_MODEL") or DEFAULT_TTS_MODEL).strip(),
-        tts_voice=(os.environ.get("TTS_VOICE") or "af_heart").strip(),
+        # The voice picked in the app (data/settings.json) wins over TTS_VOICE in .env.
+        tts_voice=saved_voice(data_dir) or (os.environ.get("TTS_VOICE") or DEFAULT_VOICE).strip(),
         tts_speed=_float("TTS_SPEED", 1.0),
     )

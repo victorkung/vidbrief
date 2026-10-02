@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from vidbrief.config import load_settings  # noqa: E402
+from vidbrief.voices import lang_code  # noqa: E402
 
 SAMPLE_RATE = 24000
 PAUSE_S = 0.25
@@ -49,7 +50,7 @@ def main() -> None:
     pause = np.zeros(int(PAUSE_S * SAMPLE_RATE), dtype=np.float32)
     pieces = []
     for i, line in enumerate(lines):
-        for seg in model.generate(text=line, voice=voice, speed=speed, lang_code="a"):
+        for seg in model.generate(text=line, voice=voice, speed=speed, lang_code=lang_code(voice)):
             pieces.append(np.array(seg.audio, dtype=np.float32).reshape(-1))
         pieces.append(pause)
         emit("PROGRESS_JSON", {"done": i + 1, "total": len(lines)})

@@ -205,6 +205,23 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--bg-secondar
 .listen-speed { flex: none; }
 .listen-download { flex: none; color: var(--text-secondary); display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; }
 .listen-download:hover { color: var(--text); background: var(--bg-tertiary); }
+.listen-voice { color: var(--text-tertiary); }
+.listen-rerecord { margin-left: 10px; border: 0; background: none; color: var(--gold); cursor: pointer; padding: 0; font-size: 13px; }
+.voice { margin-top: 4px; }
+.voice-current { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--border); background: var(--bg-secondary); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+.voice-current:hover { background: var(--bg-tertiary); }
+.voice-panel { margin-top: 12px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); display: grid; gap: 14px; }
+.voice-group .section-label { margin-bottom: 8px; }
+.voice-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.voice-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-secondary); overflow: hidden; }
+.voice-chip.on { border-color: var(--gold); }
+.voice-pick { border: 0; background: none; padding: 6px 4px 6px 14px; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; }
+.voice-name { font-weight: 600; font-size: 14px; }
+.voice-chip.on .voice-name { color: var(--gold); }
+.voice-meta { color: var(--text-tertiary); font-size: 12px; }
+.voice-preview { border: 0; background: none; color: var(--text-secondary); cursor: pointer; padding: 0 12px 0 8px; font-size: 11px; min-width: 32px; }
+.voice-preview:hover { color: var(--gold); }
+.voice-pick:focus-visible, .voice-preview:focus-visible, .voice-current:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .card-audio { display: inline-flex; align-items: center; gap: 4px; color: var(--gold); }
 
 .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--bg-secondary); border-radius: 999px; margin: 28px 0 0; max-width: 100%; overflow-x: auto; }

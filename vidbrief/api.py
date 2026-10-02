@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from . import media, pipeline
+from . import media, pipeline, speech, voices
 from .config import MODES, load_settings
 from .naming import clean_title, is_supported_url, media_key
 
@@ -170,6 +170,10 @@ class BatchBody(BaseModel):
     whisper_model: str | None = None
 
 
+class VoiceBody(BaseModel):
+    voice: str
+
+
 class ResummarizeBody(BaseModel):
     mode: str | None = None
 
@@ -181,6 +185,7 @@ def health() -> dict[str, Any]:
         "ok": True,
         "llm_model": s.llm_model,
         "whisper_model": s.whisper_model,
+        "tts_voice": s.tts_voice,
         "mode": s.mode,
         "yt_dlp": bool(shutil.which("yt-dlp")),
         "ffmpeg": bool(shutil.which("ffmpeg")),
@@ -269,6 +274,42 @@ def audio(brief_id: str) -> FileResponse:
         raise HTTPException(404, "No audio for this brief yet")
     name = f"{(row.get('title') or 'brief')[:80]}.mp3".replace("/", "-")
     return FileResponse(path, media_type="audio/mpeg", filename=name, content_disposition_type="inline")
+
+
+@app.get("/api/voices")
+def list_voices() -> dict[str, Any]:
+    return {"voices": voices.catalog(), "current": load_settings().tts_voice}
+
+
+@app.put("/api/settings/voice")
+def set_voice(body: VoiceBody) -> dict[str, Any]:
+    """Default voice for new audio (existing briefs keep theirs until re-recorded)."""
+    try:
+        voices.save_voice(load_settings().data_dir, body.voice)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"current": body.voice}
+
+
+_preview_lock = threading.Lock()
+
+
+@app.get("/api/voices/{voice}/preview")
+def voice_preview(voice: str) -> FileResponse:
+    """A ~10 s sample of a voice, recorded once and cached in DATA_DIR/voice_previews/."""
+    if voice not in voices.VOICE_IDS:
+        raise HTTPException(404, "Unknown voice")
+    s = load_settings()
+    path = s.data_dir / "voice_previews" / f"{voice}.mp3"
+    with _preview_lock:
+        if not path.is_file():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            s.tts_voice = voice
+            try:
+                speech.synthesize(voices.PREVIEW_TEXT, path, settings=s)
+            except RuntimeError as exc:
+                raise HTTPException(500, str(exc)) from exc
+    return FileResponse(path, media_type="audio/mpeg")
 
 
 @app.post("/api/briefs/{brief_id}/voice")

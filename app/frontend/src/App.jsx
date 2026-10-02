@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatDuration, stageLabel } from "./api";
 import AudioBar from "./audio.jsx";
+import VoicePicker from "./voices.jsx";
 import Markdown from "./markdown.jsx";
 
 const ACTIVE = new Set(["queued", "running", "pending"]);
@@ -280,6 +281,7 @@ export default function App() {
               for X videos and YouTube videos without captions.
             </span>
           </div>
+          <VoicePicker onChange={(v) => setHealth((h) => ({ ...h, tts_voice: v }))} />
           {error && <p className="hint danger-text">{error}</p>}
           {notice && <p className="hint ok-text">{notice}</p>}
           <section className="library">
@@ -375,7 +377,10 @@ export default function App() {
             )}
           </div>
 
-          {detail?.status === "ready" && detail.audio && <AudioBar key={detail.id} brief={detail} />}
+          {detail?.status === "ready" && detail.audio && (
+            <AudioBar key={`${detail.id}-${detail.audio_seconds}`} brief={detail} currentVoice={health?.tts_voice}
+              onRerecord={() => act(() => api.voice(detail.id))} />
+          )}
           {detail?.status === "ready" && detail.folder && !detail.audio && (
             <div className="listen listen-empty">
               <span>{detail.audio_error ? "Audio couldn't be recorded." : "No audio for this brief yet."}</span>

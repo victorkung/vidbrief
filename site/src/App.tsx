@@ -29,14 +29,14 @@ cd vidbrief && ./scripts/setup.sh && ./scripts/dev.sh`;
 function Wordmark() {
   return (
     <span className="font-display text-[28px] leading-none tracking-tight">
-      Vid<em className="gold-text">Brief</em>
+      Vid<span className="text-accent">Brief</span>
     </span>
   );
 }
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-20 border-b border-line/70 bg-root/80 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6" aria-label="Main">
         <a href="#top" aria-label="VidBrief home"><Wordmark /></a>
         <div className="hidden items-center gap-7 text-sm text-ink-2 md:flex">
@@ -58,27 +58,27 @@ function Nav() {
 
 function Hero() {
   return (
-    <section id="top" className="hero-aura relative">
+    <section id="top" className="relative bg-soft">
       <div className="mx-auto max-w-6xl px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-24">
         <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-ink-2">
-          <Sparkles size={13} className="text-gold" /> Free and open source · runs on your Mac
+          <Sparkles size={13} className="text-accent" /> Free and open source · runs on your Mac
         </p>
         <h1 className="font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl">
-          Any video, <em className="gold-text pr-2">briefed.</em>
+          Any video, <span className="text-accent">briefed.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 sm:text-xl">
           Paste a YouTube or X link. VidBrief writes a tight, timestamped brief, and reads it to you, entirely on
           your Mac. No API keys, no subscriptions, nothing sent to the cloud.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href={GITHUB} className="gold-bg glow inline-flex items-center gap-2 rounded-full px-6 py-3 font-bold text-black hover:brightness-105">
+          <a href={GITHUB} className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
             <Github size={18} /> Get it on GitHub
           </a>
           <a href="#sample" className="inline-flex items-center gap-2 rounded-full border border-line bg-raised px-6 py-3 font-medium hover:bg-raised-2">
             See a sample <ArrowRight size={16} />
           </a>
         </div>
-        <div className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-2xl border border-line bg-card shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
+        <div className="mx-auto mt-14 max-w-5xl overflow-hidden rounded-2xl border border-line bg-card frame-shadow">
           <div className="flex items-center gap-1.5 border-b border-line px-4 py-3" aria-hidden="true">
             <span className="size-2.5 rounded-full bg-raised-2" />
             <span className="size-2.5 rounded-full bg-raised-2" />
@@ -95,11 +95,11 @@ function Hero() {
           />
         </div>
       </div>
-      <div className="border-y border-line bg-card/60">
+      <div className="border-y border-line bg-white">
         <ul className="mx-auto grid max-w-6xl grid-cols-2 gap-4 px-4 py-5 text-sm text-ink-2 sm:px-6 md:grid-cols-4">
           {["Free forever", "No API keys", "Nothing leaves your Mac", "Open source (MIT)"].map((t) => (
             <li key={t} className="flex items-center justify-center gap-2">
-              <Check size={16} className="text-gold" /> {t}
+              <Check size={16} className="text-accent" /> {t}
             </li>
           ))}
         </ul>
@@ -124,9 +124,9 @@ function HowItWorks() {
       </p>
       <ol className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {STEPS.map(({ icon: Icon, title, body }, i) => (
-          <li key={title} className="rounded-2xl border border-line bg-card p-6">
+          <li key={title} className="rounded-2xl border border-line bg-card p-6 card-shadow">
             <div className="flex items-center justify-between">
-              <span className="grid size-10 place-items-center rounded-xl bg-raised text-gold"><Icon size={20} /></span>
+              <span className="grid size-10 place-items-center rounded-xl bg-raised text-accent"><Icon size={20} /></span>
               <span className="font-display text-3xl text-ink-3">{i + 1}</span>
             </div>
             <h3 className="mt-5 text-lg font-semibold">{title}</h3>
@@ -143,7 +143,7 @@ function HowItWorks() {
 
 function Sample() {
   return (
-    <section id="sample" className="section-anchor border-y border-line bg-card/40">
+    <section id="sample" className="section-anchor border-y border-line bg-soft">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_1.15fr] [&>*]:min-w-0">
         <div>
           <h2 className="font-display text-5xl tracking-tight sm:text-6xl">A real brief</h2>
@@ -191,8 +191,8 @@ function Features() {
       </p>
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ icon: Icon, title, body }) => (
-          <div key={title} className="rounded-2xl border border-line bg-card p-6">
-            <Icon size={22} className="text-gold" />
+          <div key={title} className="rounded-2xl border border-line bg-card p-6 card-shadow">
+            <Icon size={22} className="text-accent" />
             <h3 className="mt-4 text-lg font-semibold">{title}</h3>
             <p className="mt-2 leading-relaxed text-ink-2">{body}</p>
           </div>
@@ -204,12 +204,12 @@ function Features() {
 
 function Why() {
   return (
-    <section className="border-y border-line bg-card/40">
+    <section className="border-y border-line bg-soft">
       <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
         <h2 className="font-display text-5xl tracking-tight sm:text-6xl">Why I built it</h2>
         <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink-2">
           <p>
-            I built <a className="text-gold hover:underline" href="https://podbrief.io">PodBrief</a> to turn podcasts
+            I built <a className="text-accent hover:underline" href="https://podbrief.io">PodBrief</a> to turn podcasts
             and videos into written and audio briefs. It runs on commercial APIs for transcription, summaries and
             voice, and I loved using it. But every brief costs money and sends content to someone else's servers.
           </p>
@@ -243,7 +243,7 @@ function GetStarted() {
               "About 8 GB of disk for models",
               "Homebrew installed",
             ].map((t) => (
-              <li key={t} className="flex items-center gap-3"><Check size={18} className="text-gold" /> {t}</li>
+              <li key={t} className="flex items-center gap-3"><Check size={18} className="text-accent" /> {t}</li>
             ))}
           </ul>
         </div>
@@ -258,9 +258,9 @@ function GetStarted() {
             <pre className="overflow-x-auto p-5 text-sm leading-7"><code>{QUICKSTART}</code></pre>
           </div>
           <p className="mt-4 flex items-center gap-2 text-sm text-ink-2">
-            <Clock size={15} className="text-gold" /> First setup downloads about 7.8 GB of models, then opens at
+            <Clock size={15} className="text-accent" /> First setup downloads about 7.8 GB of models, then opens at
             127.0.0.1:5174.{" "}
-            <a className="text-gold hover:underline" href={`${GITHUB}#quick-start`}>Full instructions</a>
+            <a className="text-accent hover:underline" href={`${GITHUB}#quick-start`}>Full instructions</a>
           </p>
         </div>
       </div>
@@ -288,7 +288,7 @@ function FAQ() {
             <details key={q} className="group py-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-medium">
                 {q}
-                <span className="text-gold transition group-open:rotate-45" aria-hidden="true">+</span>
+                <span className="text-accent transition group-open:rotate-45" aria-hidden="true">+</span>
               </summary>
               <p className="mt-3 leading-relaxed text-ink-2">{a}</p>
             </details>

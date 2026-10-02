@@ -53,7 +53,7 @@ export default function Player({ src, label }: { src: string; label: string }) {
         type="button"
         onClick={toggle}
         aria-label={playing ? "Pause" : "Play sample"}
-        className="gold-bg glow grid size-12 shrink-0 cursor-pointer place-items-center rounded-full text-black transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full bg-accent text-white transition hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
       </button>

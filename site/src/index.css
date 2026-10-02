@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
-/* Tokens shared with the VidBrief app (and PodBrief). */
+/* VidBrief palette: light surfaces, Trust Blue accent, no gradients (shared with the app). */
 @theme {
-  --color-ink: #f5efe4;
-  --color-ink-2: rgb(245 239 228 / 0.66);
-  --color-ink-3: #8a857c;
-  --color-root: #070707;
-  --color-card: #0c0a08;
-  --color-raised: #1a1a1a;
-  --color-raised-2: #262626;
-  --color-line: #2a2a2a;
-  --color-gold: #e0b352;
-  --color-gold-end: #da840b;
+  --color-ink: #0f172a;
+  --color-ink-2: #475569;
+  --color-ink-3: #94a3b8;
+  --color-root: #ffffff;
+  --color-soft: #f8fafc;
+  --color-card: #ffffff;
+  --color-raised: #f1f5f9;
+  --color-raised-2: #e2e8f0;
+  --color-line: #e2e8f0;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-tint: #dbeafe;
   --font-display: "Instrument Serif", "Times New Roman", serif;
   --font-sans: "Google Sans", system-ui, -apple-system, sans-serif;
 }
@@ -19,7 +21,7 @@
 html {
   scroll-behavior: smooth;
   background: var(--color-root);
-  color-scheme: dark;
+  color-scheme: light;
 }
 body {
   margin: 0;
@@ -29,22 +31,10 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-::selection { background: rgb(224 179 82 / 0.35); }
+::selection { background: var(--color-accent-tint); }
 
-.gold-text {
-  padding-right: 0.12em; /* italic glyphs overhang their box; keep them inside the gradient clip */
-  background: linear-gradient(to right, var(--color-gold), var(--color-gold-end));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.gold-bg { background: linear-gradient(to right, var(--color-gold), var(--color-gold-end)); }
-.glow { box-shadow: 0 8px 32px rgb(224 179 82 / 0.28); }
-.hero-aura {
-  background:
-    radial-gradient(60% 50% at 50% 0%, rgb(224 179 82 / 0.16), transparent 70%),
-    radial-gradient(40% 40% at 85% 20%, rgb(218 132 11 / 0.08), transparent 70%);
-}
+.card-shadow { box-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 1px 3px rgb(15 23 42 / 0.06); }
+.frame-shadow { box-shadow: 0 1px 3px rgb(15 23 42 / 0.06), 0 20px 50px rgb(15 23 42 / 0.10); }
 .section-anchor { scroll-margin-top: 80px; }
 
 /* Sample brief typography (mirrors the app's reader). */
@@ -53,8 +43,8 @@ body {
 .prose-brief p { margin: 0 0 0.9rem; color: var(--color-ink); line-height: 1.65; }
 .prose-brief ul { margin: 0.4rem 0 1rem; padding-left: 1.25rem; list-style: disc; }
 .prose-brief li { margin-bottom: 0.45rem; line-height: 1.6; }
-.prose-brief li::marker { color: var(--color-gold); }
-.prose-brief .ts { color: var(--color-gold); font-variant-numeric: tabular-nums; text-decoration: none; font-weight: 500; }
+.prose-brief li::marker { color: var(--color-accent); }
+.prose-brief .ts { color: var(--color-accent); font-variant-numeric: tabular-nums; text-decoration: none; font-weight: 500; }
 .prose-brief .ts:hover { text-decoration: underline; }
 .prose-brief .meta { color: var(--color-ink-3); font-style: italic; }
 
@@ -62,11 +52,11 @@ input[type="range"].scrub {
   appearance: none;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(to right, var(--color-gold) var(--pct, 0%), var(--color-raised-2) var(--pct, 0%));
+  background: linear-gradient(to right, var(--color-accent) var(--pct, 0%), var(--color-raised-2) var(--pct, 0%));
   cursor: pointer;
 }
-input[type="range"].scrub::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--color-ink); }
-input[type="range"].scrub::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--color-ink); }
+input[type="range"].scrub::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--color-accent); }
+input[type="range"].scrub::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--color-accent); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

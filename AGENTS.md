@@ -28,7 +28,7 @@ Free, local video briefs on Apple Silicon: `url → YouTube captions or (yt-dlp 
 | `scripts/transcribe.py` | Chunked MLX Whisper |
 | `scripts/eval.py` | Compare models on already-transcribed videos |
 | `prompts/*.md` | Prompts; `priorities.md` defines what "important" means |
-| `app/frontend/` | React + Vite UI (PodBrief styling) |
+| `app/frontend/` | React + Vite UI (light theme, blue accent #2563eb; tokens in styles.css, shared with site/) |
 | `docs/reference/` | PodBrief reference briefs (format and voice guide) |
 | `docs/screenshots/` | README images, captured from a demo library (see below) |
 
